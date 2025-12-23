@@ -43,8 +43,8 @@ const Auth = () => {
           throw error;
         }
         toast({
-          title: "Account created!",
-          description: "You can now sign in with your credentials.",
+          title: "Check your email!",
+          description: "We've sent you a verification link. Please verify your email to continue.",
         });
         setIsLogin(true);
       }
