@@ -60,6 +60,7 @@ export type Database = {
           created_by: string | null
           details: string | null
           id: string
+          low_stock_threshold: number
           name: string
           photo_url: string | null
           quantity: number
@@ -73,6 +74,7 @@ export type Database = {
           created_by?: string | null
           details?: string | null
           id?: string
+          low_stock_threshold?: number
           name: string
           photo_url?: string | null
           quantity?: number
@@ -86,6 +88,7 @@ export type Database = {
           created_by?: string | null
           details?: string | null
           id?: string
+          low_stock_threshold?: number
           name?: string
           photo_url?: string | null
           quantity?: number

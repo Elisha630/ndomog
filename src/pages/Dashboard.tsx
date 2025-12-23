@@ -204,6 +204,7 @@ const Dashboard = () => {
     totalCost: items.reduce((sum, item) => sum + item.buying_price * item.quantity, 0),
     totalValue: items.reduce((sum, item) => sum + item.selling_price * item.quantity, 0),
     potentialProfit: items.reduce((sum, item) => sum + (item.selling_price - item.buying_price) * item.quantity, 0),
+    lowStockCount: items.filter((item) => item.quantity <= (item.low_stock_threshold || 5) && item.quantity > 0).length + items.filter((item) => item.quantity === 0).length,
   };
 
   if (loading) {

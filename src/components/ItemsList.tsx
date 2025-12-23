@@ -1,4 +1,4 @@
-import { Package, Plus, Minus, Trash2, Edit } from "lucide-react";
+import { Package, Plus, Minus, Trash2, Edit, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export interface Item {
@@ -10,6 +10,7 @@ export interface Item {
   buying_price: number;
   selling_price: number;
   quantity: number;
+  low_stock_threshold: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -24,6 +25,9 @@ interface ItemsListProps {
 }
 
 const ItemsList = ({ items, onAddItem, onEditItem, onUpdateQuantity, onDeleteItem }: ItemsListProps) => {
+  const isLowStock = (item: Item) => item.quantity <= item.low_stock_threshold && item.quantity > 0;
+  const isOutOfStock = (item: Item) => item.quantity === 0;
+
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
@@ -43,9 +47,20 @@ const ItemsList = ({ items, onAddItem, onEditItem, onUpdateQuantity, onDeleteIte
       {items.map((item, index) => (
         <div
           key={item.id}
-          className="stat-card space-y-3 animate-fade-in"
+          className={`stat-card space-y-3 animate-fade-in relative ${
+            isOutOfStock(item) ? "border-destructive/50" : isLowStock(item) ? "border-warning/50" : ""
+          }`}
           style={{ animationDelay: `${index * 50}ms` }}
         >
+          {(isLowStock(item) || isOutOfStock(item)) && (
+            <div className={`absolute -top-2 -right-2 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+              isOutOfStock(item) ? "bg-destructive text-destructive-foreground" : "bg-warning text-warning-foreground"
+            }`}>
+              <AlertTriangle size={12} />
+              {isOutOfStock(item) ? "Out of Stock" : "Low Stock"}
+            </div>
+          )}
+
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-foreground truncate">{item.name}</h3>
@@ -86,7 +101,11 @@ const ItemsList = ({ items, onAddItem, onEditItem, onUpdateQuantity, onDeleteIte
               >
                 <Minus size={14} />
               </Button>
-              <span className="font-semibold text-foreground w-8 text-center">{item.quantity}</span>
+              <span className={`font-semibold w-8 text-center ${
+                isOutOfStock(item) ? "text-destructive" : isLowStock(item) ? "text-warning" : "text-foreground"
+              }`}>
+                {item.quantity}
+              </span>
               <Button
                 variant="secondary"
                 size="icon"
