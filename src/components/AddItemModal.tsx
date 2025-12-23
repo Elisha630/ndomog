@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Package, Upload, Camera, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Package, Upload, X, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { Item } from "./ItemsList";
 
 interface AddItemModalProps {
@@ -27,6 +29,9 @@ const AddItemModal = ({ open, onClose, onSubmit, editItem }: AddItemModalProps) 
   const [buyingPrice, setBuyingPrice] = useState(0);
   const [sellingPrice, setSellingPrice] = useState(0);
   const [quantity, setQuantity] = useState(0);
+  const [lowStockThreshold, setLowStockThreshold] = useState(5);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editItem) {
@@ -37,6 +42,7 @@ const AddItemModal = ({ open, onClose, onSubmit, editItem }: AddItemModalProps) 
       setBuyingPrice(editItem.buying_price);
       setSellingPrice(editItem.selling_price);
       setQuantity(editItem.quantity);
+      setLowStockThreshold(editItem.low_stock_threshold || 5);
     } else {
       resetForm();
     }
@@ -50,6 +56,55 @@ const AddItemModal = ({ open, onClose, onSubmit, editItem }: AddItemModalProps) 
     setBuyingPrice(0);
     setSellingPrice(0);
     setQuantity(0);
+    setLowStockThreshold(5);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be less than 5MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("item-photos")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("item-photos")
+        .getPublicUrl(fileName);
+
+      setPhotoUrl(publicUrl);
+      toast.success("Image uploaded successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to upload image");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    if (photoUrl) {
+      const fileName = photoUrl.split("/").pop();
+      if (fileName) {
+        await supabase.storage.from("item-photos").remove([fileName]);
+      }
+      setPhotoUrl("");
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -62,6 +117,7 @@ const AddItemModal = ({ open, onClose, onSubmit, editItem }: AddItemModalProps) 
       buying_price: buyingPrice,
       selling_price: sellingPrice,
       quantity,
+      low_stock_threshold: lowStockThreshold,
     });
     resetForm();
   };
@@ -115,29 +171,41 @@ const AddItemModal = ({ open, onClose, onSubmit, editItem }: AddItemModalProps) 
 
           <div className="space-y-2">
             <Label>Photo (optional)</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button type="button" variant="secondary" className="h-20 flex-col gap-2">
-                <Upload size={20} />
-                <span className="text-xs">Upload</span>
-              </Button>
-              <Button type="button" variant="secondary" className="h-20 flex-col gap-2">
-                <Camera size={20} />
-                <span className="text-xs">Camera</span>
-              </Button>
-            </div>
-            {photoUrl && (
-              <div className="relative mt-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            {photoUrl ? (
+              <div className="relative">
                 <img src={photoUrl} alt="Preview" className="w-full h-32 object-cover rounded-lg" />
                 <Button
                   type="button"
                   variant="destructive"
                   size="icon"
                   className="absolute top-2 right-2 h-6 w-6"
-                  onClick={() => setPhotoUrl("")}
+                  onClick={handleRemoveImage}
                 >
                   <X size={12} />
                 </Button>
               </div>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full h-20 flex-col gap-2"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  <Upload size={20} />
+                )}
+                <span className="text-xs">{uploading ? "Uploading..." : "Upload Photo"}</span>
+              </Button>
             )}
           </div>
 
@@ -166,16 +234,29 @@ const AddItemModal = ({ open, onClose, onSubmit, editItem }: AddItemModalProps) 
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="quantity">Quantity</Label>
-            <Input
-              id="quantity"
-              type="number"
-              min="0"
-              value={quantity}
-              onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
-              className="bg-secondary border-border"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="0"
+                value={quantity}
+                onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
+                className="bg-secondary border-border"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lowStockThreshold">Low Stock Alert</Label>
+              <Input
+                id="lowStockThreshold"
+                type="number"
+                min="0"
+                value={lowStockThreshold}
+                onChange={(e) => setLowStockThreshold(parseInt(e.target.value) || 0)}
+                className="bg-secondary border-border"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-4">
