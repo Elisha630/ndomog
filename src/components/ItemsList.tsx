@@ -1,0 +1,125 @@
+import { Package, Plus, Minus, Trash2, Edit } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export interface Item {
+  id: string;
+  name: string;
+  category: string;
+  details: string | null;
+  photo_url: string | null;
+  buying_price: number;
+  selling_price: number;
+  quantity: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ItemsListProps {
+  items: Item[];
+  onAddItem: () => void;
+  onEditItem: (item: Item) => void;
+  onUpdateQuantity: (item: Item, change: number) => void;
+  onDeleteItem: (item: Item) => void;
+}
+
+const ItemsList = ({ items, onAddItem, onEditItem, onUpdateQuantity, onDeleteItem }: ItemsListProps) => {
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
+        <Package className="empty-state-icon mb-4" />
+        <h3 className="text-xl font-semibold text-foreground mb-2">No items found</h3>
+        <p className="text-muted-foreground mb-6">Start by adding your first item</p>
+        <Button onClick={onAddItem} className="nav-button-primary">
+          <Plus size={18} />
+          Add First Item
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {items.map((item, index) => (
+        <div
+          key={item.id}
+          className="stat-card space-y-3 animate-fade-in"
+          style={{ animationDelay: `${index * 50}ms` }}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-foreground truncate">{item.name}</h3>
+              <p className="text-sm text-muted-foreground">{item.category}</p>
+            </div>
+            {item.photo_url && (
+              <img
+                src={item.photo_url}
+                alt={item.name}
+                className="w-12 h-12 rounded-lg object-cover ml-2"
+              />
+            )}
+          </div>
+
+          {item.details && (
+            <p className="text-sm text-muted-foreground line-clamp-2">{item.details}</p>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <span className="text-muted-foreground">Buy: </span>
+              <span className="text-foreground">KES {item.buying_price.toLocaleString()}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Sell: </span>
+              <span className="text-success">KES {item.selling_price.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onUpdateQuantity(item, -1)}
+                disabled={item.quantity <= 0}
+              >
+                <Minus size={14} />
+              </Button>
+              <span className="font-semibold text-foreground w-8 text-center">{item.quantity}</span>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onUpdateQuantity(item, 1)}
+              >
+                <Plus size={14} />
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={() => onEditItem(item)}
+              >
+                <Edit size={14} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => onDeleteItem(item)}
+              >
+                <Trash2 size={14} />
+              </Button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default ItemsList;
