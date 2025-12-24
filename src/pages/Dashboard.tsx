@@ -123,6 +123,8 @@ const Dashboard = () => {
     if (!userEmail) return;
 
     const { data: { user } } = await supabase.auth.getUser();
+    
+    // Insert activity log
     await supabase.from("activity_logs").insert({
       user_id: user?.id,
       user_email: userEmail,
@@ -130,6 +132,19 @@ const Dashboard = () => {
       item_name: itemName,
       details,
     });
+
+    // Create notification for all users
+    const { data: profiles } = await supabase.from("profiles").select("id");
+    if (profiles) {
+      const notifications = profiles.map((profile) => ({
+        user_id: profile.id,
+        action_user_email: userEmail,
+        action,
+        item_name: itemName,
+        details,
+      }));
+      await supabase.from("notifications").insert(notifications);
+    }
   };
 
   const handleAddOrEditItem = async (itemData: Omit<Item, "id" | "created_by" | "created_at" | "updated_at">) => {
@@ -210,10 +225,10 @@ const Dashboard = () => {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const stats = {
-    totalItems: items.reduce((sum, item) => sum + item.quantity, 0),
-    totalCost: items.reduce((sum, item) => sum + item.buying_price * item.quantity, 0),
-    potentialProfit: items.reduce((sum, item) => sum + (item.selling_price - item.buying_price) * item.quantity, 0),
-    lowStockCount: items.filter((item) => item.quantity <= (item.low_stock_threshold || 5) && item.quantity > 0).length + items.filter((item) => item.quantity === 0).length,
+    totalItems: filteredItems.reduce((sum, item) => sum + item.quantity, 0),
+    totalCost: filteredItems.reduce((sum, item) => sum + item.buying_price * item.quantity, 0),
+    potentialProfit: filteredItems.reduce((sum, item) => sum + (item.selling_price - item.buying_price) * item.quantity, 0),
+    lowStockCount: filteredItems.filter((item) => item.quantity <= (item.low_stock_threshold || 5) && item.quantity > 0).length + filteredItems.filter((item) => item.quantity === 0).length,
   };
 
   if (loading) {

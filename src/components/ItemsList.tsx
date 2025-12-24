@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Package, Plus, Minus, Trash2, Edit, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import PhotoViewerModal from "@/components/PhotoViewerModal";
 
 export interface Item {
   id: string;
@@ -25,6 +27,8 @@ interface ItemsListProps {
 }
 
 const ItemsList = ({ items, onAddItem, onEditItem, onUpdateQuantity, onDeleteItem }: ItemsListProps) => {
+  const [viewingPhoto, setViewingPhoto] = useState<{ url: string; name: string } | null>(null);
+
   const isLowStock = (item: Item) => item.quantity <= item.low_stock_threshold && item.quantity > 0;
   const isOutOfStock = (item: Item) => item.quantity === 0;
 
@@ -43,101 +47,113 @@ const ItemsList = ({ items, onAddItem, onEditItem, onUpdateQuantity, onDeleteIte
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {items.map((item, index) => (
-        <div
-          key={item.id}
-          className={`stat-card space-y-3 animate-fade-in relative ${
-            isOutOfStock(item) ? "border-destructive/50" : isLowStock(item) ? "border-warning/50" : ""
-          }`}
-          style={{ animationDelay: `${index * 50}ms` }}
-        >
-          {(isLowStock(item) || isOutOfStock(item)) && (
-            <div className={`absolute -top-2 -right-2 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
-              isOutOfStock(item) ? "bg-destructive text-destructive-foreground" : "bg-warning text-warning-foreground"
-            }`}>
-              <AlertTriangle size={12} />
-              {isOutOfStock(item) ? "Out of Stock" : "Low Stock"}
-            </div>
-          )}
-
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground truncate">{item.name}</h3>
-              <p className="text-sm text-muted-foreground">{item.category}</p>
-            </div>
-            {item.photo_url && (
-              <img
-                src={item.photo_url}
-                alt={item.name}
-                className="w-12 h-12 rounded-lg object-cover ml-2"
-              />
-            )}
-          </div>
-
-          {item.details && (
-            <p className="text-sm text-muted-foreground line-clamp-2">{item.details}</p>
-          )}
-
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <span className="text-muted-foreground">Buy: </span>
-              <span className="text-foreground">KES {item.buying_price.toLocaleString()}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Sell: </span>
-              <span className="text-success">KES {item.selling_price.toLocaleString()}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2 border-t border-border">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => onUpdateQuantity(item, -1)}
-                disabled={item.quantity <= 0}
-              >
-                <Minus size={14} />
-              </Button>
-              <span className={`font-semibold w-8 text-center ${
-                isOutOfStock(item) ? "text-destructive" : isLowStock(item) ? "text-warning" : "text-foreground"
+    <>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((item, index) => (
+          <div
+            key={item.id}
+            className={`stat-card space-y-3 animate-fade-in relative ${
+              isOutOfStock(item) ? "border-destructive/50" : isLowStock(item) ? "border-warning/50" : ""
+            }`}
+            style={{ animationDelay: `${index * 50}ms` }}
+          >
+            {(isLowStock(item) || isOutOfStock(item)) && (
+              <div className={`absolute -top-2 -right-2 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+                isOutOfStock(item) ? "bg-destructive text-destructive-foreground" : "bg-warning text-warning-foreground"
               }`}>
-                {item.quantity}
-              </span>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => onUpdateQuantity(item, 1)}
-              >
-                <Plus size={14} />
-              </Button>
+                <AlertTriangle size={12} />
+                {isOutOfStock(item) ? "Out of Stock" : "Low Stock"}
+              </div>
+            )}
+
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-foreground truncate">{item.name}</h3>
+                <p className="text-sm text-muted-foreground">{item.category}</p>
+              </div>
+              {item.photo_url && (
+                <img
+                  src={item.photo_url}
+                  alt={item.name}
+                  className="w-12 h-12 rounded-lg object-cover ml-2 cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => setViewingPhoto({ url: item.photo_url!, name: item.name })}
+                />
+              )}
             </div>
 
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                onClick={() => onEditItem(item)}
-              >
-                <Edit size={14} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={() => onDeleteItem(item)}
-              >
-                <Trash2 size={14} />
-              </Button>
+            {item.details && (
+              <p className="text-sm text-muted-foreground line-clamp-2">{item.details}</p>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Buy: </span>
+                <span className="text-foreground">KES {item.buying_price.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Sell: </span>
+                <span className="text-success">KES {item.selling_price.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => onUpdateQuantity(item, -1)}
+                  disabled={item.quantity <= 0}
+                >
+                  <Minus size={14} />
+                </Button>
+                <span className={`font-semibold w-8 text-center ${
+                  isOutOfStock(item) ? "text-destructive" : isLowStock(item) ? "text-warning" : "text-foreground"
+                }`}>
+                  {item.quantity}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => onUpdateQuantity(item, 1)}
+                >
+                  <Plus size={14} />
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => onEditItem(item)}
+                >
+                  <Edit size={14} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => onDeleteItem(item)}
+                >
+                  <Trash2 size={14} />
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+
+      {viewingPhoto && (
+        <PhotoViewerModal
+          open={!!viewingPhoto}
+          onClose={() => setViewingPhoto(null)}
+          photoUrl={viewingPhoto.url}
+          itemName={viewingPhoto.name}
+        />
+      )}
+    </>
   );
 };
 
