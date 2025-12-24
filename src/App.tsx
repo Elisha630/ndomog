@@ -7,6 +7,8 @@ import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import OfflineIndicator from "./components/OfflineIndicator";
+import InstallPrompt from "./components/InstallPrompt";
 
 const queryClient = new QueryClient();
 
@@ -15,6 +17,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <OfflineIndicator />
+      <InstallPrompt />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Dashboard />} />

@@ -68,6 +68,17 @@ const Dashboard = () => {
       fetchItems();
       fetchActivityLogs();
       subscribeToChanges();
+
+      // Listen for online event to sync data
+      const handleOnline = () => {
+        fetchItems();
+        fetchActivityLogs();
+      };
+
+      window.addEventListener("app-online", handleOnline);
+      return () => {
+        window.removeEventListener("app-online", handleOnline);
+      };
     }
   }, [loading]);
 
