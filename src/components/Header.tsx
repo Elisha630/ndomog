@@ -4,6 +4,7 @@ import { Activity, User, Plus, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
+import NotificationBell from "@/components/NotificationBell";
 
 interface HeaderProps {
   showActivity: boolean;
@@ -36,6 +37,8 @@ const Header = ({ showActivity, setShowActivity, onAddItem }: HeaderProps) => {
       </div>
 
       <nav className="flex items-center gap-2">
+        <NotificationBell />
+
         <button
           onClick={() => setShowActivity(!showActivity)}
           className={`nav-button ${showActivity ? 'nav-button-active' : 'nav-button-default'}`}

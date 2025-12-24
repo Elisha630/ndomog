@@ -20,6 +20,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Item } from "./ItemsList";
+import BarcodeScanner from "./BarcodeScanner";
 
 interface AddItemModalProps {
   open: boolean;
@@ -86,6 +87,12 @@ const AddItemModal = ({ open, onClose, onSubmit, editItem, categories }: AddItem
       setIsNewCategory(false);
       setCategory(value);
     }
+  };
+
+  const handleBarcodeScan = (barcode: string) => {
+    // Set the barcode as item name - user can modify as needed
+    setName(barcode);
+    toast.info("Barcode scanned! You can now fill in the item details.");
   };
 
   const handleGenerateDescription = async () => {
@@ -402,7 +409,7 @@ const AddItemModal = ({ open, onClose, onSubmit, editItem, categories }: AddItem
                 <canvas ref={canvasRef} className="hidden" />
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <Button
                   type="button"
                   variant="secondary"
@@ -427,6 +434,7 @@ const AddItemModal = ({ open, onClose, onSubmit, editItem, categories }: AddItem
                   <Camera size={20} />
                   <span className="text-xs">Camera</span>
                 </Button>
+                <BarcodeScanner onScan={handleBarcodeScan} />
               </div>
             )}
           </div>
