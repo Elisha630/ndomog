@@ -123,27 +123,31 @@ const Dashboard = () => {
     if (!userEmail) return;
 
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     
     // Insert activity log
     await supabase.from("activity_logs").insert({
-      user_id: user?.id,
+      user_id: user.id,
       user_email: userEmail,
       action,
       item_name: itemName,
       details,
     });
 
-    // Create notification for all users
+    // Create notification for OTHER users only (exclude current user)
     const { data: profiles } = await supabase.from("profiles").select("id");
     if (profiles) {
-      const notifications = profiles.map((profile) => ({
-        user_id: profile.id,
-        action_user_email: userEmail,
-        action,
-        item_name: itemName,
-        details,
-      }));
-      await supabase.from("notifications").insert(notifications);
+      const otherProfiles = profiles.filter((profile) => profile.id !== user.id);
+      if (otherProfiles.length > 0) {
+        const notifications = otherProfiles.map((profile) => ({
+          user_id: profile.id,
+          action_user_email: userEmail,
+          action,
+          item_name: itemName,
+          details,
+        }));
+        await supabase.from("notifications").insert(notifications);
+      }
     }
   };
 
