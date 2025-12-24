@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Mail, Lock, ArrowLeft, Check, Loader2 } from "lucide-react";
+import { User, Mail, Lock, ArrowLeft, Check, Loader2, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,6 +122,11 @@ const Profile = () => {
     } finally {
       setLoadingPassword(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
   };
 
   return (
@@ -291,6 +296,27 @@ const Profile = () => {
                 Change Password
               </Button>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Logout */}
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <LogOut className="text-destructive" size={20} />
+              Sign Out
+            </CardTitle>
+            <CardDescription>Sign out of your account</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="destructive"
+              onClick={handleLogout}
+              className="w-full"
+            >
+              <LogOut className="mr-2" size={16} />
+              Logout
+            </Button>
           </CardContent>
         </Card>
 

@@ -1,7 +1,5 @@
-import { useState, useEffect } from "react";
+import { Activity, User, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Activity, User, Plus, LogOut } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
 import NotificationBell from "@/components/NotificationBell";
@@ -14,20 +12,6 @@ interface HeaderProps {
 
 const Header = ({ showActivity, setShowActivity, onAddItem }: HeaderProps) => {
   const navigate = useNavigate();
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserEmail(user?.email || null);
-    };
-    getUser();
-  }, []);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
-  };
 
   return (
     <header className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -56,11 +40,6 @@ const Header = ({ showActivity, setShowActivity, onAddItem }: HeaderProps) => {
           <Plus size={18} />
           <span className="hidden sm:inline">Add Item</span>
         </Button>
-
-        <button onClick={handleLogout} className="nav-button nav-button-default">
-          <LogOut size={18} />
-          <span className="hidden sm:inline">Logout</span>
-        </button>
       </nav>
     </header>
   );
