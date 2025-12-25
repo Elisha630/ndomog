@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Mail, Lock, ArrowLeft, Check, Loader2, LogOut, Shield, Fingerprint, AtSign, Camera, Upload } from "lucide-react";
+import { Mail, Lock, ArrowLeft, Check, Loader2, LogOut, Shield, Fingerprint, Pencil, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import PinSetupModal from "@/components/PinSetupModal";
+import PhotoViewerModal from "@/components/PhotoViewerModal";
 import { useBackButton } from "@/hooks/useBackButton";
 import { biometricService, BiometryType } from "@/services/biometricService";
 
@@ -25,7 +32,7 @@ const Profile = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [loadingUsername, setLoadingUsername] = useState(false);
-  const [showUsernameChange, setShowUsernameChange] = useState(false);
+  const [editingUsername, setEditingUsername] = useState(false);
   const [usernameError, setUsernameError] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -34,6 +41,7 @@ const Profile = () => {
   const [loadingPassword, setLoadingPassword] = useState(false);
   const [showEmailChange, setShowEmailChange] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [showPhotoViewer, setShowPhotoViewer] = useState(false);
   
   // PIN settings
   const [hasPinEnabled, setHasPinEnabled] = useState(false);
@@ -306,7 +314,7 @@ const Profile = () => {
         title: "Success",
         description: "Username updated successfully",
       });
-      setShowUsernameChange(false);
+      setEditingUsername(false);
       setNewUsername("");
     } catch (error: any) {
       toast({
@@ -404,6 +412,18 @@ const Profile = () => {
     navigate("/auth");
   };
 
+  const startEditingUsername = () => {
+    setNewUsername(username || "");
+    setEditingUsername(true);
+    setUsernameError("");
+  };
+
+  const cancelEditingUsername = () => {
+    setEditingUsername(false);
+    setNewUsername("");
+    setUsernameError("");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="flex items-center gap-3 px-4 py-3 border-b border-border">
@@ -413,173 +433,149 @@ const Profile = () => {
         <h1 className="font-semibold text-lg text-foreground">Profile Settings</h1>
       </header>
 
-      <main className="container max-w-2xl mx-auto p-4 space-y-6">
-        {/* Profile Picture */}
+      <main className="container max-w-2xl mx-auto p-4 space-y-4">
+        {/* Profile Card with Avatar, Username, and Email */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Camera className="text-primary" size={20} />
-              Profile Picture
-            </CardTitle>
-            <CardDescription>Upload a profile picture</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-4">
-            <div className="relative">
-              <Avatar className="h-24 w-24 border-2 border-border">
-                <AvatarImage src={avatarUrl || undefined} alt={username || "User"} />
-                <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                  {username ? username[0].toUpperCase() : userEmail?.[0]?.toUpperCase() || "U"}
-                </AvatarFallback>
-              </Avatar>
-              {uploadingAvatar && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-full">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                </div>
-              )}
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarUpload}
-              className="hidden"
-            />
-            <Button
-              variant="secondary"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingAvatar}
-            >
-              <Upload className="mr-2" size={16} />
-              {avatarUrl ? "Change Photo" : "Upload Photo"}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Current Account Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="text-primary" size={20} />
-              Account Information
-            </CardTitle>
-            <CardDescription>Your current account details</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
-              <Mail className="text-muted-foreground" size={18} />
-              <span className="text-foreground">{userEmail}</span>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
-              <AtSign className="text-muted-foreground" size={18} />
-              <span className="text-foreground">
-                {username ? `@${username}` : <span className="text-muted-foreground italic">No username set</span>}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Change Username */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AtSign className="text-primary" size={20} />
-              Change Username
-            </CardTitle>
-            <CardDescription>Update your display name (shown in activity logs)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {showUsernameChange ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="newUsername">New Username</Label>
-                  <Input
-                    id="newUsername"
-                    type="text"
-                    placeholder="Enter new username"
-                    value={newUsername}
-                    onChange={(e) => {
-                      setNewUsername(e.target.value);
-                      setUsernameError("");
-                    }}
-                    className="bg-secondary border-border"
-                  />
-                  {usernameError && (
-                    <p className="text-sm text-destructive">{usernameError}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    3-20 characters, letters, numbers, and underscores only
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setShowUsernameChange(false);
-                      setNewUsername("");
-                      setUsernameError("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleUpdateUsername}
-                    disabled={loadingUsername || !newUsername.trim()}
-                  >
-                    {loadingUsername ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Check className="mr-2 h-4 w-4" />
-                        Update Username
-                      </>
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center gap-4">
+              {/* Clickable Avatar with dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="relative focus:outline-none group" disabled={uploadingAvatar}>
+                    <Avatar className="h-24 w-24 border-2 border-border cursor-pointer transition-opacity group-hover:opacity-80">
+                      <AvatarImage src={avatarUrl || undefined} alt={username || "User"} />
+                      <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                        {username ? username[0].toUpperCase() : userEmail?.[0]?.toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    {uploadingAvatar && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-full">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
                     )}
-                  </Button>
-                </div>
+                    <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1.5 shadow-md">
+                      <Pencil size={12} />
+                    </div>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center">
+                  {avatarUrl && (
+                    <DropdownMenuItem onClick={() => setShowPhotoViewer(true)}>
+                      <Eye className="mr-2" size={16} />
+                      View Photo
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                    <Pencil className="mr-2" size={16} />
+                    {avatarUrl ? "Change Photo" : "Upload Photo"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+
+              {/* Username with inline edit */}
+              <div className="w-full">
+                {editingUsername ? (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder="Enter username"
+                        value={newUsername}
+                        onChange={(e) => {
+                          setNewUsername(e.target.value);
+                          setUsernameError("");
+                        }}
+                        className="bg-secondary border-border text-center"
+                        autoFocus
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={cancelEditingUsername}
+                        disabled={loadingUsername}
+                      >
+                        ✕
+                      </Button>
+                      <Button
+                        size="icon"
+                        onClick={handleUpdateUsername}
+                        disabled={loadingUsername || !newUsername.trim()}
+                      >
+                        {loadingUsername ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    {usernameError && (
+                      <p className="text-sm text-destructive text-center">{usernameError}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground text-center">
+                      3-20 characters, letters, numbers, underscores
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-lg font-medium text-foreground">
+                      {username ? `@${username}` : <span className="text-muted-foreground italic">No username</span>}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={startEditingUsername}
+                    >
+                      <Pencil size={14} />
+                    </Button>
+                  </div>
+                )}
               </div>
-            ) : (
-              <Button
-                variant="secondary"
-                onClick={() => setShowUsernameChange(true)}
-              >
-                <AtSign className="mr-2" size={16} />
-                {username ? "Change Username" : "Set Username"}
-              </Button>
-            )}
+
+              {/* Email display */}
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Mail size={16} />
+                <span className="text-sm">{userEmail}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Change Email */}
+        {/* Account Security - Email & Password combined */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="text-primary" size={20} />
-              Change Email
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Lock className="text-primary" size={18} />
+              Account Security
             </CardTitle>
-            <CardDescription>Update your email address</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Email Change */}
             {showEmailChange ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="newEmail">New Email Address</Label>
-                  <Input
-                    id="newEmail"
-                    type="email"
-                    placeholder="Enter new email"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    className="bg-secondary border-border"
-                  />
-                </div>
-                <p className="text-sm text-muted-foreground">
+              <div className="space-y-3 p-3 bg-secondary/50 rounded-lg">
+                <Label htmlFor="newEmail" className="text-sm">New Email Address</Label>
+                <Input
+                  id="newEmail"
+                  type="email"
+                  placeholder="Enter new email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="bg-background border-border"
+                />
+                <p className="text-xs text-muted-foreground">
                   A verification email will be sent to your new address.
                 </p>
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"
+                    size="sm"
                     onClick={() => {
                       setShowEmailChange(false);
                       setNewEmail("");
@@ -588,74 +584,61 @@ const Profile = () => {
                     Cancel
                   </Button>
                   <Button
+                    size="sm"
                     onClick={handleUpdateEmail}
                     disabled={loadingEmail}
                   >
                     {loadingEmail ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Sending...
-                      </>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                      <>
-                        <Check className="mr-2 h-4 w-4" />
-                        Update Email
-                      </>
+                      <Check className="mr-2 h-4 w-4" />
                     )}
+                    Update
                   </Button>
                 </div>
               </div>
             ) : (
               <Button
                 variant="secondary"
+                className="w-full justify-start"
                 onClick={() => setShowEmailChange(true)}
               >
                 <Mail className="mr-2" size={16} />
                 Change Email Address
               </Button>
             )}
-          </CardContent>
-        </Card>
 
-        {/* Change Password */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lock className="text-primary" size={20} />
-              Change Password
-            </CardTitle>
-            <CardDescription>Update your account password</CardDescription>
-          </CardHeader>
-          <CardContent>
+            {/* Password Change */}
             {showPasswordChange ? (
-              <div className="space-y-4">
+              <div className="space-y-3 p-3 bg-secondary/50 rounded-lg">
                 <div className="space-y-2">
-                  <Label htmlFor="newPassword">New Password</Label>
+                  <Label htmlFor="newPassword" className="text-sm">New Password</Label>
                   <Input
                     id="newPassword"
                     type="password"
                     placeholder="Enter new password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="bg-secondary border-border"
+                    className="bg-background border-border"
                     minLength={6}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Label htmlFor="confirmPassword" className="text-sm">Confirm Password</Label>
                   <Input
                     id="confirmPassword"
                     type="password"
                     placeholder="Confirm new password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="bg-secondary border-border"
+                    className="bg-background border-border"
                     minLength={6}
                   />
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"
+                    size="sm"
                     onClick={() => {
                       setShowPasswordChange(false);
                       setNewPassword("");
@@ -665,26 +648,23 @@ const Profile = () => {
                     Cancel
                   </Button>
                   <Button
+                    size="sm"
                     onClick={handleUpdatePassword}
                     disabled={loadingPassword}
                   >
                     {loadingPassword ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                      <>
-                        <Check className="mr-2 h-4 w-4" />
-                        Update Password
-                      </>
+                      <Check className="mr-2 h-4 w-4" />
                     )}
+                    Update
                   </Button>
                 </div>
               </div>
             ) : (
               <Button
                 variant="secondary"
+                className="w-full justify-start"
                 onClick={() => setShowPasswordChange(true)}
               >
                 <Lock className="mr-2" size={16} />
@@ -696,12 +676,11 @@ const Profile = () => {
 
         {/* PIN Lock Settings */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="text-primary" size={20} />
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Shield className="text-primary" size={18} />
               PIN Lock
             </CardTitle>
-            <CardDescription>Protect your account with a PIN code</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
@@ -753,21 +732,14 @@ const Profile = () => {
 
         {/* Logout */}
         <Card className="border-destructive/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <LogOut className="text-destructive" size={20} />
-              Sign Out
-            </CardTitle>
-            <CardDescription>Sign out of your account</CardDescription>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <Button
               variant="destructive"
               onClick={handleLogout}
               className="w-full"
             >
               <LogOut className="mr-2" size={16} />
-              Logout
+              Sign Out
             </Button>
           </CardContent>
         </Card>
@@ -786,6 +758,15 @@ const Profile = () => {
           }}
           userId={userId}
           isChangingPin={hasPinEnabled}
+        />
+      )}
+
+      {avatarUrl && (
+        <PhotoViewerModal
+          open={showPhotoViewer}
+          onClose={() => setShowPhotoViewer(false)}
+          photoUrl={avatarUrl}
+          itemName={username || "Profile Photo"}
         />
       )}
     </div>
