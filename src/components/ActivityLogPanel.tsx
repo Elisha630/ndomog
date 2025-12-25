@@ -9,13 +9,23 @@ export interface ActivityLog {
   item_name: string;
   details: string | null;
   created_at: string;
+  username?: string;
 }
 
 interface ActivityLogPanelProps {
   logs: ActivityLog[];
+  userProfiles: Map<string, string>; // user_id -> username
 }
 
-const ActivityLogPanel = ({ logs }: ActivityLogPanelProps) => {
+const ActivityLogPanel = ({ logs, userProfiles }: ActivityLogPanelProps) => {
+  const getDisplayName = (log: ActivityLog) => {
+    // Try to get username from profiles map using user_id
+    if (log.user_id && userProfiles.has(log.user_id)) {
+      return userProfiles.get(log.user_id)!;
+    }
+    // Fallback to email prefix
+    return log.user_email.split("@")[0];
+  };
   const getActionColor = (action: string) => {
     switch (action) {
       case "added":
@@ -52,7 +62,7 @@ const ActivityLogPanel = ({ logs }: ActivityLogPanelProps) => {
               <div className="w-2 h-2 rounded-full bg-muted-foreground mt-2 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-foreground">
-                  <span className="font-medium">{log.user_email.split("@")[0]}</span>
+                  <span className="font-medium">{getDisplayName(log)}</span>
                   <span className={`mx-1 ${getActionColor(log.action)}`}>{log.action}</span>
                   <span className="font-medium">{log.item_name}</span>
                   {log.details && (

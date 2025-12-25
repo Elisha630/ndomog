@@ -8,6 +8,7 @@ import SearchBar from "@/components/SearchBar";
 import ItemsList, { type Item } from "@/components/ItemsList";
 import ActivityLogPanel, { type ActivityLog } from "@/components/ActivityLogPanel";
 import AddItemModal from "@/components/AddItemModal";
+import UsernamePrompt from "@/components/UsernamePrompt";
 
 import RestockSuggestions from "@/components/RestockSuggestions";
 import {
@@ -21,6 +22,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+interface UserProfile {
+  id: string;
+  username: string | null;
+  email: string;
+}
+
 const Dashboard = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
@@ -32,6 +39,9 @@ const Dashboard = () => {
   const [editItem, setEditItem] = useState<Item | null>(null);
   const [deleteItem, setDeleteItem] = useState<Item | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
+  const [userProfiles, setUserProfiles] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -47,6 +57,20 @@ const Dashboard = () => {
         return;
       }
       setUserEmail(session.user.email || null);
+      
+      // Check if user has a username
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", session.user.id)
+        .maybeSingle();
+      
+      if (profile?.username) {
+        setCurrentUsername(profile.username);
+      } else {
+        setShowUsernamePrompt(true);
+      }
+      
       setLoading(false);
     };
 
@@ -67,12 +91,14 @@ const Dashboard = () => {
     if (!loading) {
       fetchItems();
       fetchActivityLogs();
+      fetchUserProfiles();
       subscribeToChanges();
 
       // Listen for online event to sync data
       const handleOnline = () => {
         fetchItems();
         fetchActivityLogs();
+        fetchUserProfiles();
       };
 
       window.addEventListener("app-online", handleOnline);
@@ -81,6 +107,24 @@ const Dashboard = () => {
       };
     }
   }, [loading]);
+
+  const fetchUserProfiles = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, username, email");
+
+    if (!error && data) {
+      const profileMap = new Map<string, string>();
+      data.forEach((profile) => {
+        if (profile.username) {
+          profileMap.set(profile.id, profile.username);
+        } else {
+          profileMap.set(profile.id, profile.email.split("@")[0]);
+        }
+      });
+      setUserProfiles(profileMap);
+    }
+  };
 
   const fetchItems = async () => {
     const { data, error } = await supabase
@@ -148,7 +192,7 @@ const Dashboard = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     
-    // Insert activity log
+    // Insert activity log (still stores email for data integrity, but we display username)
     await supabase.from("activity_logs").insert({
       user_id: user.id,
       user_email: userEmail,
@@ -158,19 +202,69 @@ const Dashboard = () => {
     });
 
     // Create notification for OTHER users only (exclude current user)
+    // Use username or email prefix for display
+    const displayName = currentUsername || userEmail.split("@")[0];
     const { data: profiles } = await supabase.from("profiles").select("id");
     if (profiles) {
       const otherProfiles = profiles.filter((profile) => profile.id !== user.id);
       if (otherProfiles.length > 0) {
         const notifications = otherProfiles.map((profile) => ({
           user_id: profile.id,
-          action_user_email: userEmail,
+          action_user_email: userEmail, // Still store email for lookup
           action,
           item_name: itemName,
           details,
         }));
         await supabase.from("notifications").insert(notifications);
       }
+    }
+  };
+
+  const normalizeItemText = async (itemId: string, name: string, category: string, description: string | null) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-inventory", {
+        body: {
+          type: "normalize_text",
+          itemName: name,
+          category: category,
+          description: description || "",
+        },
+      });
+
+      if (error) {
+        console.error("AI normalization error:", error);
+        return;
+      }
+
+      if (data?.result) {
+        try {
+          // Parse the JSON response
+          const normalized = JSON.parse(data.result);
+          
+          // Check if anything changed
+          const nameChanged = normalized.name && normalized.name !== name;
+          const categoryChanged = normalized.category && normalized.category !== category;
+          const descriptionChanged = normalized.description && normalized.description !== (description || "");
+          
+          if (nameChanged || categoryChanged || descriptionChanged) {
+            const updates: Record<string, string> = {};
+            if (nameChanged) updates.name = normalized.name;
+            if (categoryChanged) updates.category = normalized.category;
+            if (descriptionChanged && normalized.description) updates.details = normalized.description;
+            
+            await supabase
+              .from("items")
+              .update(updates)
+              .eq("id", itemId);
+              
+            console.log("Item normalized:", updates);
+          }
+        } catch (parseError) {
+          console.error("Failed to parse AI response:", parseError);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to normalize item:", error);
     }
   };
 
@@ -188,17 +282,25 @@ const Dashboard = () => {
       } else {
         await logActivity("updated", itemData.name, "Modified item details");
         toast({ title: "Success", description: "Item updated successfully" });
+        // Normalize text in background
+        normalizeItemText(editItem.id, itemData.name, itemData.category, itemData.details);
       }
     } else {
-      const { error } = await supabase
+      const { data: newItem, error } = await supabase
         .from("items")
-        .insert({ ...itemData, created_by: user?.id });
+        .insert({ ...itemData, created_by: user?.id })
+        .select()
+        .single();
 
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
       } else {
         await logActivity("added", itemData.name, `Added with quantity: ${itemData.quantity}`);
         toast({ title: "Success", description: "Item added successfully" });
+        // Normalize text in background
+        if (newItem) {
+          normalizeItemText(newItem.id, itemData.name, itemData.category, itemData.details);
+        }
       }
     }
 
@@ -320,7 +422,7 @@ const Dashboard = () => {
       />
 
       <main className="container max-w-7xl mx-auto p-4 space-y-6">
-        {showActivity && <ActivityLogPanel logs={activityLogs} />}
+        {showActivity && <ActivityLogPanel logs={activityLogs} userProfiles={userProfiles} />}
 
         <StatsCards {...stats} />
 
@@ -358,6 +460,15 @@ const Dashboard = () => {
         onSubmit={handleAddOrEditItem}
         editItem={editItem}
         categories={categories}
+      />
+
+      <UsernamePrompt
+        open={showUsernamePrompt}
+        onComplete={(username) => {
+          setCurrentUsername(username);
+          setShowUsernamePrompt(false);
+          fetchUserProfiles();
+        }}
       />
 
       <AlertDialog open={!!deleteItem} onOpenChange={() => setDeleteItem(null)}>
