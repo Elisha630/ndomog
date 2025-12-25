@@ -21,6 +21,12 @@ interface Notification {
   created_at: string;
 }
 
+interface UserProfile {
+  id: string;
+  username: string | null;
+  email: string;
+}
+
 // Notification sound as a base64 encoded short beep
 const NOTIFICATION_SOUND = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodHfvHFMXYqy2vGwb0M8YIGWq62xvMjc8/z0287BxMvY4e/0+f/84s62ppSKfXByeIGHi4uIe3RwdYSXqLvJ2O35/PXm1r+nlIB0eH6Bjop+bV9bboGVqLnG1eX2/Pns2rqjjnlub3V/hYeBdGpka3qHkpulr7rE0d/t+f/+8+DCq5R/b2hsdn+JlaCpsLnCzdnm8fj8+/Xr4NTHvLSvq6uusbW5vsXM1d3l7PP3+fv7+Pb18/Dv7u7v7/Dw8fHy8/P09fX29/f4+Pn5+fr6+vr6+vr6+vr6+fn5+Pj39/b29fX09PPz8vLx8fDw8O/v7u7t7ezr6+rp6ejn5uXk4+Lg397d3NvZ2NbV09LQzszKyMbEwL68uri1s7CuqqellpCHf3ZtY1lRSUA3MC0qKCcmJygrLjM5QEhRWmRtdn+HkJqjrLO5vsLGycvMzMvJyMbEwr+9uri1sq+sqKSgm5aRjIeCfnh0cG1qaGZlZGVmaWxwdHl9goeKjpGTlpeYmZqam5ucnJ2dnZycm5uampqZmJiXlpWUk5KRkI+OjYyLiomIh4aFhIOCgYCAf359fHt6eXl4eHh4eHl5enp7fH1+f4CCg4SFhoeIiYqLjI2OkJGSlJWXmJmam5ydnp+goaKjpKWmp6ipqqutr7CxsrO0tba3uLm6u7y9vsDBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8=";
 
@@ -29,12 +35,14 @@ const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [userProfiles, setUserProfiles] = useState<Map<string, UserProfile>>(new Map());
 
   useEffect(() => {
     // Initialize audio element
     audioRef.current = new Audio(NOTIFICATION_SOUND);
     audioRef.current.volume = 0.5;
 
+    fetchProfiles();
     fetchNotifications();
     const unsubscribe = subscribeToNotifications();
 
@@ -57,6 +65,28 @@ const NotificationBell = () => {
         console.log("Could not play notification sound:", err);
       });
     }
+  };
+
+  const fetchProfiles = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, username, email");
+
+    if (!error && data) {
+      const profileMap = new Map<string, UserProfile>();
+      data.forEach((profile) => {
+        profileMap.set(profile.email, profile);
+      });
+      setUserProfiles(profileMap);
+    }
+  };
+
+  const getDisplayName = (email: string): string => {
+    const profile = userProfiles.get(email);
+    if (profile?.username) {
+      return profile.username;
+    }
+    return email.split("@")[0];
   };
 
   const fetchNotifications = async () => {
@@ -208,7 +238,7 @@ const NotificationBell = () => {
                   <Trash2 size={14} />
                 </Button>
                 <p className="text-sm text-foreground pr-6">
-                  <span className="font-medium">{notification.action_user_email}</span>{" "}
+                  <span className="font-medium">{getDisplayName(notification.action_user_email)}</span>{" "}
                   <span className={getActionColor(notification.action)}>
                     {notification.action}
                   </span>{" "}

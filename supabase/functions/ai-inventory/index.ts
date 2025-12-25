@@ -23,9 +23,17 @@ const RestockSuggestionSchema = z.object({
   salesHistory: z.string().max(500).optional(),
 });
 
+const NormalizeTextSchema = z.object({
+  type: z.literal("normalize_text"),
+  itemName: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  category: z.string().min(1).max(100),
+});
+
 const RequestSchema = z.discriminatedUnion("type", [
   GenerateDescriptionSchema,
   RestockSuggestionSchema,
+  NormalizeTextSchema,
 ]);
 
 // Sanitize input to prevent prompt injection
@@ -116,6 +124,29 @@ serve(async (req) => {
 ${safeSalesHistory ? `- Recent Activity: ${safeSalesHistory}` : ""}
 
 Provide a brief recommendation with suggested restock quantity and reasoning in 2-3 sentences.`;
+    } else if (validatedData.type === "normalize_text") {
+      const safeItemName = sanitizeInput(validatedData.itemName);
+      const safeCategory = sanitizeInput(validatedData.category);
+      const safeDescription = validatedData.description ? sanitizeInput(validatedData.description) : "";
+      
+      systemPrompt = `You are a text normalization assistant for an inventory system. Your job is to correct spelling errors, fix casing, and standardize spacing in product names, categories, and descriptions. 
+
+Rules:
+- Use proper title case for product names (e.g., "Land Cruiser" not "landcruiser")
+- Fix common misspellings
+- Standardize compound words (e.g., "Land Cruiser" with space, not "Landcruiser")
+- Keep the meaning exactly the same, just fix formatting
+- Return ONLY a JSON object with the corrected fields, no other text
+
+Example input: "landcruiser v8" in category "cars"
+Example output: {"name": "Land Cruiser V8", "category": "Cars", "description": ""}`;
+
+      userPrompt = `Normalize this inventory item:
+- Name: "${safeItemName}"
+- Category: "${safeCategory}"
+- Description: "${safeDescription}"
+
+Return ONLY a JSON object with corrected "name", "category", and "description" fields.`;
     }
 
     console.log(`Processing ${validatedData.type} request for: ${validatedData.itemName}`);
