@@ -96,14 +96,14 @@ const Dashboard = () => {
   };
 
   const fetchActivityLogs = async () => {
-    // Calculate the date 20 days ago
-    const twentyDaysAgo = new Date();
-    twentyDaysAgo.setDate(twentyDaysAgo.getDate() - 20);
+    // Calculate the date 7 days ago (1 week)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const { data, error } = await supabase
       .from("activity_logs")
       .select("*")
-      .gte("created_at", twentyDaysAgo.toISOString())
+      .gte("created_at", sevenDaysAgo.toISOString())
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -267,11 +267,30 @@ const Dashboard = () => {
     setDeleteItem(null);
   };
 
+  const handleRenameCategory = async (oldName: string, newName: string) => {
+    if (!newName.trim() || oldName === newName) return;
+    
+    // Update all items with the old category name
+    const { error } = await supabase
+      .from("items")
+      .update({ category: newName.trim() })
+      .eq("category", oldName);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: `Category renamed from "${oldName}" to "${newName}"` });
+      fetchItems();
+    }
+  };
+
   const filteredItems = items
     .filter((item) => {
+      const searchLower = searchQuery.toLowerCase();
       const matchesSearch =
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchQuery.toLowerCase());
+        item.name.toLowerCase().includes(searchLower) ||
+        item.category.toLowerCase().includes(searchLower) ||
+        (item.details && item.details.toLowerCase().includes(searchLower));
       const matchesCategory = selectedCategory === "all" || item.category === selectedCategory;
       return matchesSearch && matchesCategory;
     })
@@ -312,6 +331,7 @@ const Dashboard = () => {
             categories={categories}
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
+            onRenameCategory={handleRenameCategory}
           />
           <RestockSuggestions items={items} />
         </div>
