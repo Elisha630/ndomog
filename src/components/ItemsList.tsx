@@ -50,7 +50,7 @@ const ItemsList = ({ items, onAddItem, onEditItem, onUpdateQuantity, onBulkUpdat
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showBulkUpdate, setShowBulkUpdate] = useState(false);
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
   const isLowStock = (item: Item) => item.quantity <= item.low_stock_threshold && item.quantity > 0;
   const isOutOfStock = (item: Item) => item.quantity === 0;
@@ -103,15 +103,7 @@ const ItemsList = ({ items, onAddItem, onEditItem, onUpdateQuantity, onBulkUpdat
   };
 
   const toggleExpanded = (itemId: string) => {
-    setExpandedItems((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(itemId)) {
-        newSet.delete(itemId);
-      } else {
-        newSet.add(itemId);
-      }
-      return newSet;
-    });
+    setExpandedItem((prev) => prev === itemId ? null : itemId);
   };
 
   if (items.length === 0) {
@@ -175,7 +167,7 @@ const ItemsList = ({ items, onAddItem, onEditItem, onUpdateQuantity, onBulkUpdat
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {items.map((item, index) => {
-          const isExpanded = expandedItems.has(item.id);
+          const isExpanded = expandedItem === item.id;
           return (
             <Collapsible
               key={item.id}
