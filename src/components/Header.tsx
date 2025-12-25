@@ -31,15 +31,14 @@ const Header = ({ showActivity, setShowActivity, onAddItem }: HeaderProps) => {
           <span className="hidden sm:inline">Activity</span>
         </button>
 
-        <button onClick={() => navigate("/profile")} className="nav-button nav-button-default">
-          <User size={18} />
-          <span className="hidden sm:inline">Profile</span>
-        </button>
-
         <Button onClick={onAddItem} size="sm" className="nav-button-primary">
           <Plus size={18} />
           <span className="hidden sm:inline">Add Item</span>
         </Button>
+
+        <button onClick={() => navigate("/profile")} className="nav-button nav-button-default">
+          <User size={18} />
+        </button>
       </nav>
     </header>
   );
