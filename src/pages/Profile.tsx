@@ -18,6 +18,7 @@ import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import PinSetupModal from "@/components/PinSetupModal";
 import PhotoViewerModal from "@/components/PhotoViewerModal";
+import AppVersion from "@/components/AppVersion";
 import { useBackButton } from "@/hooks/useBackButton";
 import { biometricService, BiometryType } from "@/services/biometricService";
 import { useTextSize, TextSize } from "@/hooks/useTextSize";
@@ -830,6 +831,8 @@ const Profile = () => {
         <p className="text-xs text-muted-foreground text-center">
           Note: Only 5 email accounts can access this inventory.
         </p>
+
+        <AppVersion className="mt-4 pb-4" />
       </main>
 
       {userId && (
