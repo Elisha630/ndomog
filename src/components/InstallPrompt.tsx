@@ -37,14 +37,8 @@ const InstallPrompt = () => {
       }
     }
 
-    // Check APK download dismissed (show again after 1 hour for better UX)
-    const apkDismissed = localStorage.getItem("apk-download-dismissed");
-    const showApk = !apkDismissed || (Date.now() - parseInt(apkDismissed, 10) > 60 * 60 * 1000);
-    
-    // Show APK download option after a delay
-    if (showApk) {
-      setTimeout(() => setShowApkDownload(true), 2000);
-    }
+    // Always show APK download option after a short delay (don't use dismissal timer)
+    setTimeout(() => setShowApkDownload(true), 2000);
 
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
@@ -89,7 +83,7 @@ const InstallPrompt = () => {
 
   const handleApkDismiss = () => {
     setShowApkDownload(false);
-    localStorage.setItem("apk-download-dismissed", Date.now().toString());
+    // Don't persist dismissal - banner will reappear on next visit
   };
 
   const handleApkDownload = () => {

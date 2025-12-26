@@ -1,12 +1,17 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 
 type CloseHandler = () => boolean;
+type NavigateFunction = (path: string) => void;
 
 // Global registry of close handlers (modals, sheets, etc.)
 const closeHandlers = new Map<string, CloseHandler>();
+
+// Store the navigate function globally so the Capacitor listener can use React Router
+let globalNavigate: NavigateFunction | null = null;
+let currentPathname = "/";
 
 export const registerCloseHandler = (id: string, handler: CloseHandler) => {
   closeHandlers.set(id, handler);
@@ -19,6 +24,16 @@ let capacitorListenerRegistered = false;
 export const useBackButton = (onBack?: () => void) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const onBackRef = useRef(onBack);
+  
+  // Keep ref updated
+  onBackRef.current = onBack;
+
+  // Update global state for Capacitor listener
+  useEffect(() => {
+    globalNavigate = navigate;
+    currentPathname = location.pathname;
+  }, [navigate, location.pathname]);
 
   const handleBack = useCallback(() => {
     // Try to close any open modal first
@@ -29,8 +44,8 @@ export const useBackButton = (onBack?: () => void) => {
     }
     
     // No modal was open, execute custom back action
-    if (onBack) {
-      onBack();
+    if (onBackRef.current) {
+      onBackRef.current();
       return true;
     }
     
@@ -41,7 +56,7 @@ export const useBackButton = (onBack?: () => void) => {
     }
     
     return false;
-  }, [onBack, location.pathname, navigate]);
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     // Only register Capacitor back button handler on native platforms
@@ -60,10 +75,10 @@ export const useBackButton = (onBack?: () => void) => {
           }
         }
         
-        // If not on home page, navigate to home
-        if (window.location.pathname !== "/") {
-          window.location.href = "/";
-        } else {
+        // Use React Router navigate instead of window.location to avoid full page reload
+        if (currentPathname !== "/" && globalNavigate) {
+          globalNavigate("/");
+        } else if (currentPathname === "/") {
           // Exit the app if on home page with no modals open
           App.exitApp();
         }
