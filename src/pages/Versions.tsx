@@ -15,6 +15,11 @@ import {
   formatFileSize,
   type VersionInfo 
 } from "@/lib/githubReleases";
+import {
+  getAllCloudReleases,
+  isCloudStorageConfigured,
+  toDirectDownloadLink,
+} from "@/lib/cloudStorageReleases";
 
 interface LocalVersionInfo {
   version: string;
@@ -46,6 +51,23 @@ const Versions = () => {
           const releases = await fetchAllReleases();
           if (releases.length > 0) {
             setVersions(releases);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // Try Cloud Storage (Google Drive / Dropbox) if configured
+        if (isCloudStorageConfigured()) {
+          const cloudReleases = getAllCloudReleases();
+          const mappedReleases: VersionInfo[] = cloudReleases.map(r => ({
+            version: r.version,
+            releaseDate: r.releaseDate,
+            releaseNotes: r.releaseNotes,
+            downloadUrl: toDirectDownloadLink(r.downloadUrl),
+            minAndroidVersion: r.minAndroidVersion,
+          }));
+          if (mappedReleases.length > 0) {
+            setVersions(mappedReleases);
             setLoading(false);
             return;
           }
