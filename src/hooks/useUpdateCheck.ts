@@ -6,6 +6,11 @@ import {
   isGitHubReleasesConfigured,
   type VersionInfo 
 } from "@/lib/githubReleases";
+import {
+  getLatestCloudRelease,
+  isCloudStorageConfigured,
+  toDirectDownloadLink,
+} from "@/lib/cloudStorageReleases";
 
 interface LocalVersionInfo {
   version: string;
@@ -73,8 +78,20 @@ export const useUpdateCheck = (): UpdateCheckResult => {
         } else {
           throw new Error("Failed to fetch from GitHub Releases");
         }
-      } else {
-        // Fallback to local version.json
+      } 
+      // Try Cloud Storage (Google Drive / Dropbox) if configured
+      else if (isCloudStorageConfigured()) {
+        const cloudRelease = getLatestCloudRelease();
+        if (cloudRelease) {
+          version = cloudRelease.version;
+          notes = cloudRelease.releaseNotes;
+          url = toDirectDownloadLink(cloudRelease.downloadUrl);
+        } else {
+          throw new Error("No cloud storage releases configured");
+        }
+      } 
+      // Fallback to local version.json
+      else {
         const baseUrl = Capacitor.isNativePlatform()
           ? "https://ndomog.lovable.app"
           : "";
