@@ -1,7 +1,7 @@
 // GitHub Releases API integration for APK hosting
 // Replace with your actual GitHub repository details
-const GITHUB_OWNER = "YOUR_GITHUB_USERNAME";
-const GITHUB_REPO = "YOUR_REPO_NAME";
+const GITHUB_OWNER = "Elisha630";
+const GITHUB_REPO = "ndomog";
 const GITHUB_API_BASE = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
 
 export interface GitHubRelease {
@@ -120,7 +120,7 @@ export const fetchAllReleases = async (): Promise<VersionInfo[]> => {
 
 // Check if GitHub releases are configured
 export const isGitHubReleasesConfigured = (): boolean => {
-  return GITHUB_OWNER !== "YOUR_GITHUB_USERNAME" && GITHUB_REPO !== "YOUR_REPO_NAME";
+  return GITHUB_OWNER.length > 0 && GITHUB_REPO.length > 0;
 };
 
 // Get the GitHub repo configuration
