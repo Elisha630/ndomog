@@ -21,11 +21,21 @@ const UpdateNotification = () => {
     if (!downloadUrl) return;
 
     const isNative = Capacitor.isNativePlatform();
-    const baseUrl = isNative ? "https://ndomog.lovable.app" : window.location.origin;
-    const fullUrl = baseUrl + downloadUrl;
+    // Check if downloadUrl is already a full URL (from cloud storage)
+    const isFullUrl = downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://");
+    
+    // If it's a relative path, prepend the base URL
+    const fullUrl = isFullUrl 
+      ? downloadUrl 
+      : (isNative ? "https://ndomog.lovable.app" : window.location.origin) + downloadUrl;
 
     if (isNative) {
-      await Browser.open({ url: fullUrl });
+      try {
+        await Browser.open({ url: fullUrl });
+      } catch (err) {
+        console.error("Failed to open browser:", err);
+        window.open(fullUrl, "_blank");
+      }
     } else {
       window.open(fullUrl, "_blank", "noopener,noreferrer");
     }
