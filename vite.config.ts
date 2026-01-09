@@ -6,7 +6,7 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // App version - update this when releasing new versions
 // Ask the AI to update this value when you release a new version
-const BUILD_VERSION = "1.2.1";
+const BUILD_VERSION = "1.2.2";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
