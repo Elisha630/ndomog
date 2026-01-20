@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mail, Lock, ArrowLeft, Check, Loader2, LogOut, Shield, Fingerprint, Pencil, Eye, Type, Sun, Moon, Contrast, RefreshCw, FolderOpen, Download, History, Settings } from "lucide-react";
+import { Mail, Lock, ArrowLeft, Check, Loader2, LogOut, Shield, Fingerprint, Pencil, Eye, Type, Sun, Moon, Contrast, RefreshCw, FolderOpen, Download, History, Settings, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -883,6 +883,18 @@ const Profile = () => {
               <FolderOpen className="mr-2" size={16} />
               Manage Categories
             </Button>
+
+            {/* User Management (Admin only) */}
+            {isAdmin && (
+              <Button
+                variant="secondary"
+                onClick={() => navigate("/admin/users")}
+                className="w-full justify-start"
+              >
+                <Users className="mr-2" size={16} />
+                Manage Users
+              </Button>
+            )}
 
             {/* Check for Updates */}
             <div className="pt-2 border-t border-border">
