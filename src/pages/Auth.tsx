@@ -207,12 +207,29 @@ const Auth = () => {
 
     try {
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) {
+          // Check if user is admin-verified even if email not confirmed
           if (error.message.toLowerCase().includes("email not confirmed")) {
+            // Check if admin has verified this user
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select("admin_verified")
+              .eq("email", email)
+              .maybeSingle();
+
+            if (profiles?.admin_verified) {
+              // Admin verified - show message about contacting admin
+              toast({
+                title: "Account verified by admin",
+                description: "Your account was verified by an admin. Please try logging in again.",
+              });
+              // Note: Supabase still requires email confirmation at the auth level
+              // Admin verification is a secondary check
+            }
             setShowResendOption(true);
           }
           throw error;

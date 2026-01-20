@@ -320,27 +320,44 @@ export type Database = {
       }
       profiles: {
         Row: {
+          admin_verified: boolean
           avatar_url: string | null
           created_at: string
           email: string
           id: string
           username: string | null
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
+          admin_verified?: boolean
           avatar_url?: string | null
           created_at?: string
           email: string
           id: string
           username?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
+          admin_verified?: boolean
           avatar_url?: string | null
           created_at?: string
           email?: string
           id?: string
           username?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_pins: {
         Row: {
@@ -398,6 +415,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_verify_user: { Args: { _target_user_id: string }; Returns: boolean }
       cleanup_old_activity_logs: { Args: never; Returns: undefined }
       has_role: {
         Args: {
