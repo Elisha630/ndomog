@@ -22,10 +22,11 @@ object Routes {
 
 @Composable
 fun AppNavigation(
-    authRepository: AuthRepository
+    authRepository: AuthRepository,
+    database: NdomogDatabase
 ) {
     val navController = rememberNavController()
-    val authViewModel: AuthViewModel = viewModel(factory = ViewModelFactory(authRepository))
+    val authViewModel: AuthViewModel = viewModel(factory = ViewModelFactory(authRepository, database))
 
     NavHost(navController = navController, startDestination = Routes.LOGIN) {
         composable(Routes.LOGIN) {
@@ -36,18 +37,25 @@ fun AppNavigation(
             }
         }
         composable(Routes.DASHBOARD) {
-            DashboardScreen(onLogout = {
-                // Handle logout logic if needed, then navigate to login
-                navController.navigate(Routes.LOGIN) {
-                    popUpTo(Routes.DASHBOARD) { inclusive = true }
-                }
-            })
+            val viewModelFactory = ViewModelFactory(authRepository, database)
+            DashboardScreen(
+                onLogout = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.DASHBOARD) { inclusive = true }
+                    }
+                },
+                onNavigateToProfile = { navController.navigate(Routes.PROFILE) },
+                onNavigateToCategories = { navController.navigate(Routes.CATEGORIES) }, // Added navigation to categories
+                viewModelFactory = viewModelFactory
+            )
         }
         composable(Routes.PROFILE) {
-            ProfileScreen()
+            val viewModelFactory = ViewModelFactory(authRepository, database)
+            ProfileScreen(onBack = { navController.popBackStack() }, viewModelFactory = viewModelFactory)
         }
         composable(Routes.CATEGORIES) {
-            CategoriesScreen()
+            val viewModelFactory = ViewModelFactory(authRepository, database)
+            CategoriesScreen(onBack = { navController.popBackStack() }, viewModelFactory = viewModelFactory)
         }
     }
 }

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.os.Build
 import androidx.room.Room
 import com.ndomog.inventory.data.local.NdomogDatabase
+import com.ndomog.inventory.data.repository.AuthRepository // Added import
 import timber.log.Timber
 
 class NdomogApplication : Application() {
@@ -22,6 +23,11 @@ class NdomogApplication : Application() {
             NdomogDatabase::class.java,
             "ndomog_inventory.db"
         ).build()
+    }
+
+    // AuthRepository instance
+    val authRepository: AuthRepository by lazy {
+        AuthRepository()
     }
 
     override fun onCreate() {
