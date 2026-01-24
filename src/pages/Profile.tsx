@@ -885,6 +885,18 @@ const Profile = () => {
               Manage Categories
             </Button>
 
+            {/* User Management (Admin only) */}
+            {isAdmin && (
+              <Button
+                variant="secondary"
+                onClick={() => navigate("/admin/users")}
+                className="w-full justify-start"
+              >
+                <Bell className="mr-2" size={16} />
+                Manage Users
+              </Button>
+            )}
+
             {/* Check for Updates */}
             <div className="pt-2 border-t border-border">
               <Button

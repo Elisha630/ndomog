@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 import Categories from "./pages/Categories";
 import Versions from "./pages/Versions";
 import AdminReleases from "./pages/AdminReleases";
+import AdminUsers from "./pages/AdminUsers";
 import NotFound from "./pages/NotFound";
 import OfflineIndicator from "./components/OfflineIndicator";
 import InstallPrompt from "./components/InstallPrompt";
@@ -109,6 +110,7 @@ const AppContent = () => {
         <Route path="/categories" element={<Categories />} />
         <Route path="/versions" element={<Versions />} />
         <Route path="/admin/releases" element={<AdminReleases />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

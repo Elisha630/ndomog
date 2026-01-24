@@ -6,15 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import Logo from "@/components/Logo";
 
-type AuthMode = "login" | "signup" | "forgot" | "reset";
+type AuthMode = "login" | "signup" | "forgot" | "reset" | "verify";
 
 const Auth = () => {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -62,14 +68,11 @@ const Auth = () => {
       const { error } = await supabase.auth.resend({
         type: "signup",
         email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-        },
       });
       if (error) throw error;
       toast({
-        title: "Verification email sent!",
-        description: "Please check your inbox and spam folder.",
+        title: "Verification code sent!",
+        description: "Please check your inbox and spam folder for the 6-digit code.",
       });
     } catch (error: any) {
       toast({
@@ -79,6 +82,44 @@ const Auth = () => {
       });
     } finally {
       setResendingEmail(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (otpCode.length !== 6) {
+      toast({
+        title: "Invalid code",
+        description: "Please enter all 6 digits.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode,
+        type: "signup",
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Email verified!",
+        description: "Your account has been confirmed. Welcome!",
+      });
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Verification failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -166,12 +207,29 @@ const Auth = () => {
 
     try {
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) {
+          // Check if user is admin-verified even if email not confirmed
           if (error.message.toLowerCase().includes("email not confirmed")) {
+            // Check if admin has verified this user
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select("admin_verified")
+              .eq("email", email)
+              .maybeSingle();
+
+            if (profiles?.admin_verified) {
+              // Admin verified - show message about contacting admin
+              toast({
+                title: "Account verified by admin",
+                description: "Your account was verified by an admin. Please try logging in again.",
+              });
+              // Note: Supabase still requires email confirmation at the auth level
+              // Admin verification is a secondary check
+            }
             setShowResendOption(true);
           }
           throw error;
@@ -181,9 +239,6 @@ const Auth = () => {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          },
         });
         if (error) {
           if (error.message.includes("Maximum of 5 users")) {
@@ -193,9 +248,10 @@ const Auth = () => {
         }
         toast({
           title: "Check your email!",
-          description: "We've sent you a verification link. Please check your inbox and spam folder.",
+          description: "We've sent you a 6-digit verification code.",
         });
-        setMode("login");
+        setOtpCode("");
+        setMode("verify");
       }
     } catch (error: any) {
       toast({
@@ -216,10 +272,82 @@ const Auth = () => {
         return "Set New Password";
       case "signup":
         return "Create your account";
+      case "verify":
+        return "Verify your email";
       default:
         return "Sign in to access your inventory";
     }
   };
+
+  // OTP Verification form
+  if (mode === "verify") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md space-y-8 animate-fade-in">
+          <div className="flex flex-col items-center space-y-4">
+            <Logo size="lg" />
+            <h1 className="text-3xl font-bold text-foreground">Ndomog Investment</h1>
+            <p className="text-muted-foreground">{getTitle()}</p>
+          </div>
+
+          <div className="text-center text-sm text-muted-foreground">
+            <p>We sent a 6-digit code to</p>
+            <p className="font-medium text-foreground">{email}</p>
+          </div>
+
+          <form onSubmit={handleVerifyOtp} className="space-y-6">
+            <div className="flex justify-center">
+              <InputOTP
+                maxLength={6}
+                value={otpCode}
+                onChange={(value) => setOtpCode(value)}
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={loading || otpCode.length !== 6}
+            >
+              {loading ? "Verifying..." : "Verify Email"}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleResendVerification}
+              disabled={resendingEmail}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${resendingEmail ? 'animate-spin' : ''}`} />
+              {resendingEmail ? "Sending..." : "Resend code"}
+            </Button>
+          </form>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMode("signup");
+              setOtpCode("");
+            }}
+            className="flex items-center justify-center w-full text-primary hover:underline font-medium"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to sign up
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Forgot password form
   if (mode === "forgot") {
@@ -419,11 +547,14 @@ const Auth = () => {
               type="button"
               variant="outline"
               className="w-full"
-              onClick={handleResendVerification}
+              onClick={() => {
+                setOtpCode("");
+                setMode("verify");
+              }}
               disabled={resendingEmail}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${resendingEmail ? 'animate-spin' : ''}`} />
-              {resendingEmail ? "Sending..." : "Resend verification email"}
+              Enter verification code
             </Button>
           )}
         </form>
