@@ -12,6 +12,10 @@
         "source": "com.ndomog.inventory.app-main-76:/xml/data_extraction_rules.xml"
     },
     {
+        "merged": "com.ndomog.inventory.app-debug-74:/xml_file_paths.xml.flat",
+        "source": "com.ndomog.inventory.app-main-76:/xml/file_paths.xml"
+    },
+    {
         "merged": "com.ndomog.inventory.app-debug-74:/drawable_ic_launcher_background.xml.flat",
         "source": "com.ndomog.inventory.app-main-76:/drawable/ic_launcher_background.xml"
     },

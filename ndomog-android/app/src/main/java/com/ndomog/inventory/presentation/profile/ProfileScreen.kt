@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -424,7 +425,7 @@ fun ProfileScreen(
                             )
                         }
                         
-                        HorizontalDivider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
+                        Divider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
                         
                         // Enable PIN Lock toggle
                         Row(
@@ -463,7 +464,7 @@ fun ProfileScreen(
                         
                         // Biometric toggle (only if PIN is enabled)
                         if (isPinEnabled) {
-                            HorizontalDivider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
+                            Divider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -526,7 +527,7 @@ fun ProfileScreen(
                             )
                         }
                         
-                        HorizontalDivider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
+                        Divider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
                         
                         // Dark Mode toggle
                         Row(
@@ -556,7 +557,7 @@ fun ProfileScreen(
                             )
                         }
                         
-                        HorizontalDivider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
+                        Divider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
                         
                         // High Contrast toggle
                         Row(
@@ -586,7 +587,7 @@ fun ProfileScreen(
                             )
                         }
                         
-                        HorizontalDivider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
+                        Divider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
                         
                         // Text Size slider
                         Column(
@@ -873,12 +874,12 @@ fun SettingSection(
                 }
             }
 
-            HorizontalDivider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
+            Divider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
 
             items.forEachIndexed { index, item ->
                 SettingItemRow(item = item)
                 if (index < items.size - 1) {
-                    HorizontalDivider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
+                    Divider(color = NdomogColors.DarkBorder.copy(alpha = 0.3f))
                 }
             }
             
@@ -1203,7 +1204,7 @@ fun AboutDialog(onDismiss: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                HorizontalDivider(color = NdomogColors.DarkBorder)
+                Divider(color = NdomogColors.DarkBorder)
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Text("Features:", color = NdomogColors.TextLight, fontWeight = FontWeight.Bold)
@@ -1223,7 +1224,7 @@ fun AboutDialog(onDismiss: () -> Unit) {
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = NdomogColors.DarkBorder)
+                Divider(color = NdomogColors.DarkBorder)
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Text(

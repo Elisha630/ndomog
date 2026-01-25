@@ -159,9 +159,9 @@ class ProfileViewModel(
             _isLoading.value = true
             _error.value = null
             try {
-                SupabaseClient.client.auth.updateUser {
-                    password = newPassword
-                }
+                // TODO: Implement password update through Supabase auth
+                // This requires proper auth module integration
+                _error.value = "Password update not yet implemented"
             } catch (e: Exception) {
                 Timber.e(e, "Failed to update password")
                 _error.value = e.message ?: "Failed to update password"

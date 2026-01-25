@@ -652,8 +652,7 @@ fun AddEditItemDialog(
                                 buyingPrice = buyingPrice.toDoubleOrNull() ?: 0.0,
                                 sellingPrice = sellingPrice.toDoubleOrNull() ?: 0.0,
                                 quantity = quantity.toIntOrNull() ?: 0,
-                                lowStockThreshold = lowStockThreshold.toIntOrNull() ?: 5,
-                                lastUpdated = System.currentTimeMillis()
+                                lowStockThreshold = lowStockThreshold.toIntOrNull() ?: 5
                             )
                             onConfirm(newItem)
                         },
