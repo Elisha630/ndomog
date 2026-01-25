@@ -1,6 +1,8 @@
 package com.ndomog.inventory.data.models
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -73,18 +75,28 @@ data class PendingAction(
 )
 
 @Serializable
-@Entity(tableName = "activity_logs")
+@Entity(
+    tableName = "activity_logs",
+    indices = [
+        Index(value = ["user_id"]),
+        Index(value = ["timestamp"])
+    ]
+)
 data class ActivityLog(
     @PrimaryKey
     val id: String = "",
+    @ColumnInfo(name = "user_id")
     @SerialName("user_id")
     val userId: String,
     val username: String,
     val action: String, // CREATE, UPDATE, DELETE, UPDATE_QUANTITY
+    @ColumnInfo(name = "entity_type")
     @SerialName("entity_type")
     val entityType: String = "item", // item, category, etc
+    @ColumnInfo(name = "entity_id")
     @SerialName("entity_id")
     val entityId: String,
+    @ColumnInfo(name = "entity_name")
     @SerialName("entity_name")
     val entityName: String,
     val timestamp: Long = System.currentTimeMillis(),

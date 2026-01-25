@@ -36,8 +36,19 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
             result.onSuccess {
                 _loginState.value = LoginState.Success
                 _authState.value = AuthState.Authenticated
-            }.onFailure {
-                _loginState.value = LoginState.Error(it.message ?: "An unknown error occurred")
+            }.onFailure { exception ->
+                val userFriendlyMessage = when {
+                    exception.message?.contains("Invalid login credentials", ignoreCase = true) == true -> 
+                        "Invalid email or password. Please try again."
+                    exception.message?.contains("Email not confirmed", ignoreCase = true) == true -> 
+                        "Please verify your email before logging in."
+                    exception.message?.contains("User not found", ignoreCase = true) == true -> 
+                        "This email is not registered. Please sign up first."
+                    exception.message?.contains("unauthorized", ignoreCase = true) == true -> 
+                        "Authentication failed. Please check your credentials."
+                    else -> "Login failed. Please try again later."
+                }
+                _loginState.value = LoginState.Error(userFriendlyMessage)
             }
         }
     }
@@ -48,8 +59,15 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
             val result = authRepository.signUp(email, password)
             result.onSuccess {
                 _loginState.value = LoginState.Success
-            }.onFailure {
-                _loginState.value = LoginState.Error(it.message ?: "An unknown error occurred")
+            }.onFailure { exception ->
+                val userFriendlyMessage = when {
+                    exception.message?.contains("already registered", ignoreCase = true) == true -> 
+                        "This email is already registered. Please log in instead."
+                    exception.message?.contains("weak password", ignoreCase = true) == true -> 
+                        "Password is too weak. Use at least 8 characters."
+                    else -> "Sign up failed. Please try again."
+                }
+                _loginState.value = LoginState.Error(userFriendlyMessage)
             }
         }
     }
@@ -61,7 +79,7 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
             result.onSuccess {
                 _loginState.value = LoginState.Success
             }.onFailure {
-                _loginState.value = LoginState.Error(it.message ?: "Failed to send reset email")
+                _loginState.value = LoginState.Error("Failed to send reset email. Please try again later.")
             }
         }
     }

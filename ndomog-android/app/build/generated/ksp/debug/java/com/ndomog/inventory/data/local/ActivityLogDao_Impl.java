@@ -42,7 +42,7 @@ public final class ActivityLogDao_Impl implements ActivityLogDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR REPLACE INTO `activity_logs` (`id`,`userId`,`username`,`action`,`entityType`,`entityId`,`entityName`,`timestamp`,`details`) VALUES (?,?,?,?,?,?,?,?,?)";
+        return "INSERT OR REPLACE INTO `activity_logs` (`id`,`user_id`,`username`,`action`,`entity_type`,`entity_id`,`entity_name`,`timestamp`,`details`) VALUES (?,?,?,?,?,?,?,?,?)";
       }
 
       @Override
@@ -147,12 +147,12 @@ public final class ActivityLogDao_Impl implements ActivityLogDao {
         final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
         try {
           final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
-          final int _cursorIndexOfUserId = CursorUtil.getColumnIndexOrThrow(_cursor, "userId");
+          final int _cursorIndexOfUserId = CursorUtil.getColumnIndexOrThrow(_cursor, "user_id");
           final int _cursorIndexOfUsername = CursorUtil.getColumnIndexOrThrow(_cursor, "username");
           final int _cursorIndexOfAction = CursorUtil.getColumnIndexOrThrow(_cursor, "action");
-          final int _cursorIndexOfEntityType = CursorUtil.getColumnIndexOrThrow(_cursor, "entityType");
-          final int _cursorIndexOfEntityId = CursorUtil.getColumnIndexOrThrow(_cursor, "entityId");
-          final int _cursorIndexOfEntityName = CursorUtil.getColumnIndexOrThrow(_cursor, "entityName");
+          final int _cursorIndexOfEntityType = CursorUtil.getColumnIndexOrThrow(_cursor, "entity_type");
+          final int _cursorIndexOfEntityId = CursorUtil.getColumnIndexOrThrow(_cursor, "entity_id");
+          final int _cursorIndexOfEntityName = CursorUtil.getColumnIndexOrThrow(_cursor, "entity_name");
           final int _cursorIndexOfTimestamp = CursorUtil.getColumnIndexOrThrow(_cursor, "timestamp");
           final int _cursorIndexOfDetails = CursorUtil.getColumnIndexOrThrow(_cursor, "details");
           final List<ActivityLog> _result = new ArrayList<ActivityLog>(_cursor.getCount());
@@ -211,12 +211,12 @@ public final class ActivityLogDao_Impl implements ActivityLogDao {
         final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
         try {
           final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
-          final int _cursorIndexOfUserId = CursorUtil.getColumnIndexOrThrow(_cursor, "userId");
+          final int _cursorIndexOfUserId = CursorUtil.getColumnIndexOrThrow(_cursor, "user_id");
           final int _cursorIndexOfUsername = CursorUtil.getColumnIndexOrThrow(_cursor, "username");
           final int _cursorIndexOfAction = CursorUtil.getColumnIndexOrThrow(_cursor, "action");
-          final int _cursorIndexOfEntityType = CursorUtil.getColumnIndexOrThrow(_cursor, "entityType");
-          final int _cursorIndexOfEntityId = CursorUtil.getColumnIndexOrThrow(_cursor, "entityId");
-          final int _cursorIndexOfEntityName = CursorUtil.getColumnIndexOrThrow(_cursor, "entityName");
+          final int _cursorIndexOfEntityType = CursorUtil.getColumnIndexOrThrow(_cursor, "entity_type");
+          final int _cursorIndexOfEntityId = CursorUtil.getColumnIndexOrThrow(_cursor, "entity_id");
+          final int _cursorIndexOfEntityName = CursorUtil.getColumnIndexOrThrow(_cursor, "entity_name");
           final int _cursorIndexOfTimestamp = CursorUtil.getColumnIndexOrThrow(_cursor, "timestamp");
           final int _cursorIndexOfDetails = CursorUtil.getColumnIndexOrThrow(_cursor, "details");
           final List<ActivityLog> _result = new ArrayList<ActivityLog>(_cursor.getCount());

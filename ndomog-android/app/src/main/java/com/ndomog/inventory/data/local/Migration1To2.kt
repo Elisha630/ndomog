@@ -29,9 +29,5 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
             )
             """.trimIndent()
         )
-        
-        // Create index for faster queries
-        database.execSQL("CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp DESC)")
-        database.execSQL("CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)")
     }
 }

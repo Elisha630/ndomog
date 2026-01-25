@@ -17,8 +17,8 @@ object SupabaseClient {
     ) {
         install(Auth) {
             flowType = FlowType.PKCE
-            scheme = "app"
-            host = "supabase.com"
+            scheme = "com.ndomog.app"
+            host = "callback"
             // Enable session auto-refresh and persistence
             alwaysAutoRefresh = true
             autoLoadFromStorage = true
