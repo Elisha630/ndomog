@@ -1,6 +1,9 @@
 package com.ndomog.inventory.presentation.dashboard
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -19,15 +22,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.ndomog.inventory.data.models.Item
 import com.ndomog.inventory.presentation.theme.NdomogColors
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,6 +51,8 @@ fun AddEditItemDialog(
 ) {
     if (!showDialog) return
 
+    val context = LocalContext.current
+    
     var name by remember { mutableStateOf(existingItem?.name ?: "") }
     var category by remember { mutableStateOf(existingItem?.category ?: "") }
     var isNewCategory by remember { mutableStateOf(false) }
@@ -54,6 +66,15 @@ fun AddEditItemDialog(
     
     var showCategoryDropdown by remember { mutableStateOf(false) }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
+    var showCameraError by remember { mutableStateOf(false) }
+    
+    // Create a temporary file for camera photo
+    fun createImageFile(): File {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val storageDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+        return File.createTempFile("JPEG_${timeStamp}_", ".jpg", storageDir)
+    }
     
     // Image picker launcher
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -61,17 +82,65 @@ fun AddEditItemDialog(
     ) { uri: Uri? ->
         uri?.let {
             selectedImageUri = it
-            // TODO: Upload to storage and get URL
             photoUrl = it.toString()
         }
     }
     
-    // Camera launcher
+    // Camera launcher with proper URI handling
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap ->
-        bitmap?.let {
-            // TODO: Save bitmap, upload to storage and get URL
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && tempPhotoUri != null) {
+            selectedImageUri = tempPhotoUri
+            photoUrl = tempPhotoUri.toString()
+        }
+    }
+    
+    // Permission launcher for camera
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            try {
+                val photoFile = createImageFile()
+                tempPhotoUri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    photoFile
+                )
+                tempPhotoUri?.let { uri ->
+                    cameraLauncher.launch(uri)
+                }
+            } catch (e: Exception) {
+                showCameraError = true
+            }
+        } else {
+            showCameraError = true
+        }
+    }
+    
+    // Function to launch camera safely
+    fun launchCamera() {
+        try {
+            val permission = Manifest.permission.CAMERA
+            when {
+                ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED -> {
+                    val photoFile = createImageFile()
+                    tempPhotoUri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        photoFile
+                    )
+                    tempPhotoUri?.let { uri ->
+                        cameraLauncher.launch(uri)
+                    }
+                }
+                else -> {
+                    cameraPermissionLauncher.launch(permission)
+                }
+            }
+        } catch (e: Exception) {
+            showCameraError = true
         }
     }
 
@@ -143,6 +212,49 @@ fun AddEditItemDialog(
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
+                
+                // Camera error message
+                if (showCameraError) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        colors = CardDefaults.cardColors(containerColor = NdomogColors.ErrorBackground),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Warning,
+                                contentDescription = null,
+                                tint = NdomogColors.Error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Camera not available. Please use upload instead.",
+                                color = NdomogColors.ErrorText,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            IconButton(
+                                onClick = { showCameraError = false },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = "Dismiss",
+                                    tint = NdomogColors.ErrorText,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
 
                 // Item Name
                 Text(
@@ -361,12 +473,12 @@ fun AddEditItemDialog(
                             }
                         }
                         
-                        // Camera button
+                        // Camera button - using safe launch
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(72.dp)
-                                .clickable { cameraLauncher.launch(null) },
+                                .clickable { launchCamera() },
                             shape = RoundedCornerShape(8.dp),
                             color = NdomogColors.DarkSecondary,
                             border = androidx.compose.foundation.BorderStroke(1.dp, NdomogColors.DarkBorder)
@@ -400,9 +512,10 @@ fun AddEditItemDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Buying Price
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Buying Price (KES)",
+                            "Buying Price",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 color = NdomogColors.TextMuted,
                                 fontWeight = FontWeight.Medium
@@ -411,17 +524,26 @@ fun AddEditItemDialog(
                         )
                         OutlinedTextField(
                             value = buyingPrice,
-                            onValueChange = { buyingPrice = it },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            onValueChange = { buyingPrice = it.filter { c -> c.isDigit() || c == '.' } },
+                            leadingIcon = {
+                                Text(
+                                    "KES",
+                                    color = NdomogColors.TextMuted,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
+                                )
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             colors = dialogTextFieldColors(),
                             shape = RoundedCornerShape(8.dp),
-                            singleLine = true
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                         )
                     }
+                    
+                    // Selling Price
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Selling Price (KES)",
+                            "Selling Price",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 color = NdomogColors.TextMuted,
                                 fontWeight = FontWeight.Medium
@@ -430,23 +552,31 @@ fun AddEditItemDialog(
                         )
                         OutlinedTextField(
                             value = sellingPrice,
-                            onValueChange = { sellingPrice = it },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            onValueChange = { sellingPrice = it.filter { c -> c.isDigit() || c == '.' } },
+                            leadingIcon = {
+                                Text(
+                                    "KES",
+                                    color = NdomogColors.TextMuted,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
+                                )
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             colors = dialogTextFieldColors(),
                             shape = RoundedCornerShape(8.dp),
-                            singleLine = true
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                         )
                     }
                 }
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Quantity and Low Stock Row
+                // Quantity Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Quantity
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Quantity",
@@ -458,14 +588,16 @@ fun AddEditItemDialog(
                         )
                         OutlinedTextField(
                             value = quantity,
-                            onValueChange = { quantity = it },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            onValueChange = { quantity = it.filter { c -> c.isDigit() } },
                             modifier = Modifier.fillMaxWidth(),
                             colors = dialogTextFieldColors(),
                             shape = RoundedCornerShape(8.dp),
-                            singleLine = true
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
                     }
+                    
+                    // Low Stock Threshold
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Low Stock Alert",
@@ -477,12 +609,12 @@ fun AddEditItemDialog(
                         )
                         OutlinedTextField(
                             value = lowStockThreshold,
-                            onValueChange = { lowStockThreshold = it },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            onValueChange = { lowStockThreshold = it.filter { c -> c.isDigit() } },
                             modifier = Modifier.fillMaxWidth(),
                             colors = dialogTextFieldColors(),
                             shape = RoundedCornerShape(8.dp),
-                            singleLine = true
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
                     }
                 }
@@ -502,36 +634,26 @@ fun AddEditItemDialog(
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = NdomogColors.TextMuted
-                        )
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, NdomogColors.DarkBorder)
                     ) {
                         Text("Cancel")
                     }
+                    
                     Button(
                         onClick = {
-                            val finalCategory = if (isNewCategory) newCategoryName.uppercase() else category.uppercase()
-                            val newItem = existingItem?.copy(
-                                name = name,
-                                category = finalCategory,
-                                details = details.ifEmpty { null },
-                                photoUrl = photoUrl.ifEmpty { null },
-                                buyingPrice = buyingPrice.toDoubleOrNull() ?: 0.0,
-                                sellingPrice = sellingPrice.toDoubleOrNull() ?: 0.0,
-                                quantity = quantity.toIntOrNull() ?: 0,
-                                lowStockThreshold = lowStockThreshold.toIntOrNull() ?: 5
-                            ) ?: Item(
-                                id = UUID.randomUUID().toString(),
-                                name = name,
-                                category = finalCategory,
-                                details = details.ifEmpty { null },
+                            val finalCategory = if (isNewCategory) newCategoryName else category
+                            val newItem = Item(
+                                id = existingItem?.id ?: UUID.randomUUID().toString(),
+                                name = name.trim(),
+                                category = finalCategory.trim(),
+                                details = details.trim().ifEmpty { null },
                                 photoUrl = photoUrl.ifEmpty { null },
                                 buyingPrice = buyingPrice.toDoubleOrNull() ?: 0.0,
                                 sellingPrice = sellingPrice.toDoubleOrNull() ?: 0.0,
                                 quantity = quantity.toIntOrNull() ?: 0,
                                 lowStockThreshold = lowStockThreshold.toIntOrNull() ?: 5,
-                                isDeleted = false,
-                                createdBy = null,
-                                createdAt = null,
-                                updatedAt = null
+                                lastUpdated = System.currentTimeMillis()
                             )
                             onConfirm(newItem)
                         },
@@ -558,13 +680,11 @@ fun AddEditItemDialog(
 
 @Composable
 private fun dialogTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    unfocusedBorderColor = NdomogColors.InputBorder,
+    unfocusedBorderColor = NdomogColors.DarkBorder,
     focusedBorderColor = NdomogColors.Primary,
-    unfocusedContainerColor = NdomogColors.InputBackground.copy(alpha = 0.5f),
-    focusedContainerColor = NdomogColors.InputBackground.copy(alpha = 0.5f),
+    unfocusedContainerColor = NdomogColors.DarkSecondary.copy(alpha = 0.5f),
+    focusedContainerColor = NdomogColors.DarkSecondary.copy(alpha = 0.5f),
     unfocusedTextColor = NdomogColors.TextLight,
     focusedTextColor = NdomogColors.TextLight,
-    cursorColor = NdomogColors.Primary,
-    unfocusedLabelColor = NdomogColors.TextMuted,
-    focusedLabelColor = NdomogColors.Primary
+    cursorColor = NdomogColors.Primary
 )

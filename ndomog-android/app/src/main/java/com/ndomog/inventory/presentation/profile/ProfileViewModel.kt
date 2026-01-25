@@ -7,6 +7,7 @@ import com.ndomog.inventory.data.local.ProfileDao
 import com.ndomog.inventory.data.models.Profile
 import com.ndomog.inventory.data.remote.SupabaseClient
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.gotrue.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +33,9 @@ class ProfileViewModel(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+    
+    private val _isAdmin = MutableStateFlow(false)
+    val isAdmin: StateFlow<Boolean> = _isAdmin.asStateFlow()
 
     init {
         loadUserProfile()
@@ -66,6 +70,9 @@ class ProfileViewModel(
                             _avatarUrl.value = remoteProfile.avatarUrl
                             profileDao.insertProfile(remoteProfile) // Cache the latest
                         }
+                        
+                        // Check if user is admin
+                        checkAdminStatus(userId)
                     } catch (e: Exception) {
                         Timber.e(e, "Failed to load remote profile")
                         // Continue with locally cached profile if remote fetch fails
@@ -77,6 +84,23 @@ class ProfileViewModel(
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+    
+    private suspend fun checkAdminStatus(userId: String) {
+        try {
+            // Check user_roles table for admin role
+            val roles = SupabaseClient.client.from("user_roles").select {
+                filter {
+                    eq("user_id", userId)
+                    eq("role", "admin")
+                }
+            }.decodeList<Map<String, Any>>()
+            
+            _isAdmin.value = roles.isNotEmpty()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to check admin status")
+            _isAdmin.value = false
         }
     }
 
@@ -99,6 +123,48 @@ class ProfileViewModel(
             } catch (e: Exception) {
                 Timber.e(e, "Failed to update username")
                 _error.value = e.message ?: "Failed to update username"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    fun updateAvatar(newAvatarUrl: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val currentUser = authRepository.getCurrentUser()
+                currentUser?.id?.let { userId ->
+                    SupabaseClient.client.from("profiles")
+                        .update(mapOf("avatar_url" to newAvatarUrl)) {
+                            filter {
+                                eq("id", userId)
+                            }
+                        }
+                    _avatarUrl.value = newAvatarUrl
+                    profileDao.insertProfile(Profile(id = userId, email = _userEmail.value ?: "", username = _username.value, avatarUrl = newAvatarUrl))
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to update avatar")
+                _error.value = e.message ?: "Failed to update avatar"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    fun updatePassword(newPassword: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                SupabaseClient.client.auth.updateUser {
+                    password = newPassword
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to update password")
+                _error.value = e.message ?: "Failed to update password"
             } finally {
                 _isLoading.value = false
             }
