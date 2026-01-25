@@ -226,7 +226,7 @@ fun AddEditItemDialog(
                         
                         // Divider
                         if (categories.isNotEmpty()) {
-                            HorizontalDivider(color = NdomogColors.DarkBorder)
+                            Divider(color = NdomogColors.DarkBorder)
                         }
                         
                         // Existing categories
@@ -304,7 +304,7 @@ fun AddEditItemDialog(
                             model = photoUrl,
                             contentDescription = "Item photo",
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Cover
+                            contentScale = ContentScale.Crop
                         )
                         IconButton(
                             onClick = { 
