@@ -8,7 +8,7 @@ import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.storage.Storage
 
-import kotlin.time.Duration.Companion.seconds // Added import
+import kotlin.time.Duration.Companion.seconds
 
 object SupabaseClient {
     val client = createSupabaseClient(
@@ -19,11 +19,15 @@ object SupabaseClient {
             flowType = FlowType.PKCE
             scheme = "app"
             host = "supabase.com"
+            // Enable session auto-refresh and persistence
+            alwaysAutoRefresh = true
+            autoLoadFromStorage = true
+            autoSaveToStorage = true
         }
         install(Postgrest)
         install(Realtime)
         install(Storage) {
-            transferTimeout = 90.seconds // Changed to Duration literal
+            transferTimeout = 90.seconds
         }
     }
 }
