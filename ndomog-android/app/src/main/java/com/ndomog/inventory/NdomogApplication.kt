@@ -1,6 +1,7 @@
 package com.ndomog.inventory
 
 import com.ndomog.inventory.data.local.MIGRATION_1_2 // Added import
+import com.ndomog.inventory.data.local.MIGRATION_2_3 // Added import
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -23,7 +24,7 @@ class NdomogApplication : Application() {
             applicationContext,
             NdomogDatabase::class.java,
             "ndomog_inventory.db"
-        ).addMigrations(MIGRATION_1_2) // Added migration
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3) // Added migrations
             .build()
     }
 

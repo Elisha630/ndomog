@@ -87,3 +87,21 @@ interface PendingActionDao {
     @Query("DELETE FROM pending_actions")
     suspend fun deleteAll()
 }
+
+@Dao
+interface ActivityLogDao {
+    @Query("SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT :limit")
+    fun getActivityLogs(limit: Int = 100): Flow<List<ActivityLog>>
+
+    @Query("SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getActivityLogsList(limit: Int = 100): List<ActivityLog>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertActivityLog(log: ActivityLog)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertActivityLogs(logs: List<ActivityLog>)
+
+    @Query("DELETE FROM activity_logs")
+    suspend fun deleteAll()
+}

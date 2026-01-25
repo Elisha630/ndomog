@@ -25,7 +25,13 @@ class ViewModelFactory(
                 AuthViewModel(authRepository) as T
             }
             modelClass.isAssignableFrom(DashboardViewModel::class.java) -> {
-                val itemRepository = ItemRepository(database.itemDao(), database.pendingActionDao())
+                val itemRepository = ItemRepository(
+                    database.itemDao(),
+                    database.pendingActionDao(),
+                    database.activityLogDao(),
+                    database.profileDao(),
+                    authRepository
+                )
                 val syncRepository = SyncRepository(database.itemDao(), database.pendingActionDao())
                 DashboardViewModel(itemRepository, syncRepository) as T
             }

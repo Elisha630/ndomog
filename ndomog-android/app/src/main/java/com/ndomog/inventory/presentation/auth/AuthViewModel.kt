@@ -53,6 +53,18 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
             }
         }
     }
+
+    fun sendPasswordResetEmail(email: String) {
+        viewModelScope.launch {
+            _loginState.value = LoginState.Loading
+            val result = authRepository.sendPasswordResetEmail(email)
+            result.onSuccess {
+                _loginState.value = LoginState.Success
+            }.onFailure {
+                _loginState.value = LoginState.Error(it.message ?: "Failed to send reset email")
+            }
+        }
+    }
 }
 
 sealed class AuthState {

@@ -1,10 +1,14 @@
 package com.ndomog.inventory.data.repository
 
+import com.ndomog.inventory.data.local.ActivityLogDao
 import com.ndomog.inventory.data.local.ItemDao
 import com.ndomog.inventory.data.local.PendingActionDao
+import com.ndomog.inventory.data.local.ProfileDao
 import com.ndomog.inventory.data.models.ActionType
+import com.ndomog.inventory.data.models.ActivityLog
 import com.ndomog.inventory.data.models.Item
 import com.ndomog.inventory.data.models.PendingAction
+import com.ndomog.inventory.data.models.Profile
 import com.ndomog.inventory.data.remote.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
@@ -12,10 +16,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
+import java.util.UUID
 
 class ItemRepository(
     private val itemDao: ItemDao,
-    private val pendingActionDao: PendingActionDao
+    private val pendingActionDao: PendingActionDao,
+    private val activityLogDao: ActivityLogDao,
+    private val profileDao: ProfileDao,
+    private val authRepository: AuthRepository
 ) {
     private val supabase = SupabaseClient.client
 
@@ -62,6 +70,7 @@ class ItemRepository(
             try {
                 // Sync to Supabase immediately
                 supabase.from("items").insert(item)
+                logActivity("CREATE", item.id, item.name, null)
             } catch (e: Exception) {
                 Timber.e(e, "Failed to sync item online, queuing for later")
                 queueAction(ActionType.ADD_ITEM, item.id, Json.encodeToString(item))
@@ -83,6 +92,7 @@ class ItemRepository(
                         eq("id", item.id)
                     }
                 }
+                logActivity("UPDATE", item.id, item.name, null)
             } catch (e: Exception) {
                 Timber.e(e, "Failed to update item online, queuing for later")
                 queueAction(ActionType.UPDATE_ITEM, item.id, Json.encodeToString(item))
@@ -103,6 +113,9 @@ class ItemRepository(
                         eq("id", id)
                     }
                 }
+                // Get item name for logging
+                val item = itemDao.getItemById(id)
+                logActivity("UPDATE_QUANTITY", id, item?.name ?: "Unknown", null)
             } catch (e: Exception) {
                 Timber.e(e, "Failed to update quantity online, queuing for later")
                 queueAction(ActionType.UPDATE_QUANTITY, id, Json.encodeToString(mapOf("quantity" to quantity)))
@@ -115,6 +128,7 @@ class ItemRepository(
     // Soft delete item
     suspend fun deleteItem(id: String, userId: String, isOnline: Boolean) {
         val now = java.time.Instant.now().toString()
+        val item = itemDao.getItemById(id)
         itemDao.softDelete(id, now, userId)
 
         if (isOnline) {
@@ -130,12 +144,55 @@ class ItemRepository(
                         eq("id", id)
                     }
                 }
+                logActivity("DELETE", id, item?.name ?: "Unknown", null)
             } catch (e: Exception) {
                 Timber.e(e, "Failed to delete item online, queuing for later")
                 queueAction(ActionType.DELETE_ITEM, id, Json.encodeToString(mapOf("deleted_at" to now, "deleted_by" to userId)))
             }
         } else {
             queueAction(ActionType.DELETE_ITEM, id, Json.encodeToString(mapOf("deleted_at" to now, "deleted_by" to userId)))
+        }
+    }
+
+    private suspend fun logActivity(action: String, itemId: String, itemName: String?, details: String?) {
+        try {
+            val currentUser = authRepository.getCurrentUser()
+            if (currentUser != null) {
+                // Get username from profile cache or fetch
+                var username = currentUser.email ?: "Unknown"
+                try {
+                    val profile = profileDao.getProfileById(currentUser.id)
+                    if (profile != null && !profile.username.isNullOrEmpty()) {
+                        username = profile.username
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to fetch username, using email")
+                }
+
+                val activityLog = ActivityLog(
+                    id = UUID.randomUUID().toString(),
+                    userId = currentUser.id,
+                    username = username,
+                    action = action,
+                    entityType = "item",
+                    entityId = itemId,
+                    entityName = itemName ?: "Unknown",
+                    timestamp = System.currentTimeMillis(),
+                    details = details
+                )
+
+                // Save locally
+                activityLogDao.insertActivityLog(activityLog)
+
+                // Try to sync to Supabase
+                try {
+                    supabase.from("activity_logs").insert(activityLog)
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to sync activity log online")
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to log activity")
         }
     }
 

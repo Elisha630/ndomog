@@ -10,3 +10,28 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         database.execSQL("ALTER TABLE items ADD COLUMN deleted_by TEXT DEFAULT NULL")
     }
 }
+
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        // Create activity_logs table
+        database.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS activity_logs (
+                id TEXT PRIMARY KEY NOT NULL,
+                user_id TEXT NOT NULL,
+                username TEXT NOT NULL,
+                action TEXT NOT NULL,
+                entity_type TEXT NOT NULL DEFAULT 'item',
+                entity_id TEXT NOT NULL,
+                entity_name TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                details TEXT
+            )
+            """.trimIndent()
+        )
+        
+        // Create index for faster queries
+        database.execSQL("CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp DESC)")
+        database.execSQL("CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)")
+    }
+}

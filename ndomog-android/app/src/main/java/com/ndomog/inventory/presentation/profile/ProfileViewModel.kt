@@ -6,6 +6,8 @@ import com.ndomog.inventory.data.repository.AuthRepository
 import com.ndomog.inventory.data.local.ProfileDao
 import com.ndomog.inventory.data.models.Profile
 import com.ndomog.inventory.data.remote.SupabaseClient
+import com.ndomog.inventory.services.AppRelease
+import com.ndomog.inventory.services.AppReleaseService
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.gotrue.auth
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +38,17 @@ class ProfileViewModel(
     
     private val _isAdmin = MutableStateFlow(false)
     val isAdmin: StateFlow<Boolean> = _isAdmin.asStateFlow()
+    
+    private val _isLoggedOut = MutableStateFlow(false)
+    val isLoggedOut: StateFlow<Boolean> = _isLoggedOut.asStateFlow()
+
+    private val _updateAvailable = MutableStateFlow(false)
+    val updateAvailable: StateFlow<Boolean> = _updateAvailable.asStateFlow()
+
+    private val _latestRelease = MutableStateFlow<AppRelease?>(null)
+    val latestRelease: StateFlow<AppRelease?> = _latestRelease.asStateFlow()
+
+    private val appReleaseService = AppReleaseService(viewModelScope)
 
     init {
         loadUserProfile()
@@ -66,9 +79,11 @@ class ProfileViewModel(
                         
                         if (profiles.isNotEmpty()) {
                             val remoteProfile = profiles[0]
+                            // Update values from remote
                             _username.value = remoteProfile.username
                             _avatarUrl.value = remoteProfile.avatarUrl
-                            profileDao.insertProfile(remoteProfile) // Cache the latest
+                            // Cache the latest
+                            profileDao.insertProfile(remoteProfile)
                         }
                         
                         // Check if user is admin
@@ -154,14 +169,30 @@ class ProfileViewModel(
         }
     }
     
-    fun updatePassword(newPassword: String) {
+    fun updatePassword(oldPassword: String, newPassword: String) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             try {
-                // TODO: Implement password update through Supabase auth
-                // This requires proper auth module integration
-                _error.value = "Password update not yet implemented"
+                // First, verify old password by attempting to re-authenticate
+                val currentUser = authRepository.getCurrentUser()
+                val email = currentUser?.email ?: return@launch
+
+                // Try to sign in with old password to verify
+                val verifyResult = authRepository.signIn(email, oldPassword)
+
+                if (verifyResult.isSuccess) {
+                    // Old password is correct, now update to new password
+                    val updateResult = authRepository.updatePassword(newPassword)
+
+                    if (updateResult.isSuccess) {
+                        _error.value = "Password updated successfully"
+                    } else {
+                        _error.value = updateResult.exceptionOrNull()?.message ?: "Failed to update password"
+                    }
+                } else {
+                    _error.value = "Current password is incorrect"
+                }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to update password")
                 _error.value = e.message ?: "Failed to update password"
@@ -176,11 +207,26 @@ class ProfileViewModel(
             _isLoading.value = true
             try {
                 authRepository.signOut()
+                _isLoggedOut.value = true
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to log out"
             } finally {
                 _isLoading.value = false
             }
         }
+    }
+
+    fun checkForUpdates() {
+        appReleaseService.checkForUpdates(
+            onUpdateAvailable = { release ->
+                _updateAvailable.value = true
+                _latestRelease.value = release
+                _error.value = null
+            },
+            onError = { errorMessage ->
+                _updateAvailable.value = false
+                _error.value = errorMessage
+            }
+        )
     }
 }

@@ -34,18 +34,21 @@ public final class NdomogDatabase_Impl extends NdomogDatabase {
 
   private volatile PendingActionDao _pendingActionDao;
 
+  private volatile ActivityLogDao _activityLogDao;
+
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(2) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(3) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `items` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `categoryId` TEXT, `details` TEXT, `photoUrl` TEXT, `buyingPrice` REAL NOT NULL, `sellingPrice` REAL NOT NULL, `quantity` INTEGER NOT NULL, `lowStockThreshold` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `createdBy` TEXT, `createdAt` TEXT, `updatedAt` TEXT, `deletedAt` TEXT, `deletedBy` TEXT, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `categories` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdBy` TEXT, `createdAt` TEXT, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `profiles` (`id` TEXT NOT NULL, `email` TEXT NOT NULL, `username` TEXT, `avatarUrl` TEXT, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `pending_actions` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `type` TEXT NOT NULL, `entityId` TEXT NOT NULL, `data` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `synced` INTEGER NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `activity_logs` (`id` TEXT NOT NULL, `userId` TEXT NOT NULL, `username` TEXT NOT NULL, `action` TEXT NOT NULL, `entityType` TEXT NOT NULL, `entityId` TEXT NOT NULL, `entityName` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `details` TEXT, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0bcea69e038fdd31b5502edaf547d55a')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bf28941ab0a21ad7f51a601b04eec7b8')");
       }
 
       @Override
@@ -54,6 +57,7 @@ public final class NdomogDatabase_Impl extends NdomogDatabase {
         db.execSQL("DROP TABLE IF EXISTS `categories`");
         db.execSQL("DROP TABLE IF EXISTS `profiles`");
         db.execSQL("DROP TABLE IF EXISTS `pending_actions`");
+        db.execSQL("DROP TABLE IF EXISTS `activity_logs`");
         final List<? extends RoomDatabase.Callback> _callbacks = mCallbacks;
         if (_callbacks != null) {
           for (RoomDatabase.Callback _callback : _callbacks) {
@@ -167,9 +171,28 @@ public final class NdomogDatabase_Impl extends NdomogDatabase {
                   + " Expected:\n" + _infoPendingActions + "\n"
                   + " Found:\n" + _existingPendingActions);
         }
+        final HashMap<String, TableInfo.Column> _columnsActivityLogs = new HashMap<String, TableInfo.Column>(9);
+        _columnsActivityLogs.put("id", new TableInfo.Column("id", "TEXT", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsActivityLogs.put("userId", new TableInfo.Column("userId", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsActivityLogs.put("username", new TableInfo.Column("username", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsActivityLogs.put("action", new TableInfo.Column("action", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsActivityLogs.put("entityType", new TableInfo.Column("entityType", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsActivityLogs.put("entityId", new TableInfo.Column("entityId", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsActivityLogs.put("entityName", new TableInfo.Column("entityName", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsActivityLogs.put("timestamp", new TableInfo.Column("timestamp", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsActivityLogs.put("details", new TableInfo.Column("details", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        final HashSet<TableInfo.ForeignKey> _foreignKeysActivityLogs = new HashSet<TableInfo.ForeignKey>(0);
+        final HashSet<TableInfo.Index> _indicesActivityLogs = new HashSet<TableInfo.Index>(0);
+        final TableInfo _infoActivityLogs = new TableInfo("activity_logs", _columnsActivityLogs, _foreignKeysActivityLogs, _indicesActivityLogs);
+        final TableInfo _existingActivityLogs = TableInfo.read(db, "activity_logs");
+        if (!_infoActivityLogs.equals(_existingActivityLogs)) {
+          return new RoomOpenHelper.ValidationResult(false, "activity_logs(com.ndomog.inventory.data.models.ActivityLog).\n"
+                  + " Expected:\n" + _infoActivityLogs + "\n"
+                  + " Found:\n" + _existingActivityLogs);
+        }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "0bcea69e038fdd31b5502edaf547d55a", "bc9da004967a01f2c29e8fe2a5dbdc80");
+    }, "bf28941ab0a21ad7f51a601b04eec7b8", "1005ac5c6f2ffd4cbab9f273f667cecc");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;
@@ -180,7 +203,7 @@ public final class NdomogDatabase_Impl extends NdomogDatabase {
   protected InvalidationTracker createInvalidationTracker() {
     final HashMap<String, String> _shadowTablesMap = new HashMap<String, String>(0);
     final HashMap<String, Set<String>> _viewTables = new HashMap<String, Set<String>>(0);
-    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "items","categories","profiles","pending_actions");
+    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "items","categories","profiles","pending_actions","activity_logs");
   }
 
   @Override
@@ -193,6 +216,7 @@ public final class NdomogDatabase_Impl extends NdomogDatabase {
       _db.execSQL("DELETE FROM `categories`");
       _db.execSQL("DELETE FROM `profiles`");
       _db.execSQL("DELETE FROM `pending_actions`");
+      _db.execSQL("DELETE FROM `activity_logs`");
       super.setTransactionSuccessful();
     } finally {
       super.endTransaction();
@@ -211,6 +235,7 @@ public final class NdomogDatabase_Impl extends NdomogDatabase {
     _typeConvertersMap.put(CategoryDao.class, CategoryDao_Impl.getRequiredConverters());
     _typeConvertersMap.put(ProfileDao.class, ProfileDao_Impl.getRequiredConverters());
     _typeConvertersMap.put(PendingActionDao.class, PendingActionDao_Impl.getRequiredConverters());
+    _typeConvertersMap.put(ActivityLogDao.class, ActivityLogDao_Impl.getRequiredConverters());
     return _typeConvertersMap;
   }
 
@@ -281,6 +306,20 @@ public final class NdomogDatabase_Impl extends NdomogDatabase {
           _pendingActionDao = new PendingActionDao_Impl(this);
         }
         return _pendingActionDao;
+      }
+    }
+  }
+
+  @Override
+  public ActivityLogDao activityLogDao() {
+    if (_activityLogDao != null) {
+      return _activityLogDao;
+    } else {
+      synchronized(this) {
+        if(_activityLogDao == null) {
+          _activityLogDao = new ActivityLogDao_Impl(this);
+        }
+        return _activityLogDao;
       }
     }
   }

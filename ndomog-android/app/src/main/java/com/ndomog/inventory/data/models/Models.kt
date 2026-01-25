@@ -72,6 +72,25 @@ data class PendingAction(
     val synced: Boolean = false
 )
 
+@Serializable
+@Entity(tableName = "activity_logs")
+data class ActivityLog(
+    @PrimaryKey
+    val id: String = "",
+    @SerialName("user_id")
+    val userId: String,
+    val username: String,
+    val action: String, // CREATE, UPDATE, DELETE, UPDATE_QUANTITY
+    @SerialName("entity_type")
+    val entityType: String = "item", // item, category, etc
+    @SerialName("entity_id")
+    val entityId: String,
+    @SerialName("entity_name")
+    val entityName: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val details: String? = null // Optional additional details
+)
+
 enum class ActionType {
     ADD_ITEM,
     UPDATE_ITEM,

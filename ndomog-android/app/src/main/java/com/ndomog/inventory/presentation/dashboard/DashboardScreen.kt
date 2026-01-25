@@ -39,6 +39,7 @@ import coil.compose.AsyncImage
 import com.ndomog.inventory.data.models.Item
 import com.ndomog.inventory.di.ViewModelFactory
 import com.ndomog.inventory.presentation.theme.NdomogColors
+import com.ndomog.inventory.presentation.profile.ProfileViewModel
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,9 +55,14 @@ fun DashboardScreen(
     userId: String = ""
 ) {
     val viewModel: DashboardViewModel = viewModel(factory = viewModelFactory)
+    // Also create a ProfileViewModel to get the user avatar
+    val profileViewModel: com.ndomog.inventory.presentation.profile.ProfileViewModel = 
+        viewModel(factory = viewModelFactory)
+    
     val items by viewModel.items.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val userAvatar by profileViewModel.avatarUrl.collectAsState()
 
     var showAddEditDialog by remember { mutableStateOf(false) }
     var itemToEdit by remember { mutableStateOf<Item?>(null) }
@@ -153,9 +159,10 @@ fun DashboardScreen(
                     }
                     // Profile Avatar
                     IconButton(onClick = onNavigateToProfile) {
-                        if (userAvatarUrl != null) {
+                        val avatarUrl = userAvatar
+                        if (avatarUrl != null && avatarUrl.isNotEmpty()) {
                             AsyncImage(
-                                model = userAvatarUrl,
+                                model = avatarUrl,
                                 contentDescription = "Profile",
                                 modifier = Modifier
                                     .size(32.dp)

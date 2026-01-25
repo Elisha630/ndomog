@@ -38,13 +38,17 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
 import com.ndomog.inventory.di.ViewModelFactory
 import com.ndomog.inventory.presentation.theme.NdomogColors
+import com.ndomog.inventory.utils.ThemePreferences
+import com.ndomog.inventory.utils.PinPreferences
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 // App version info
 private const val APP_VERSION = "1.2.3"
@@ -60,6 +64,8 @@ fun ProfileScreen(
     val viewModel: ProfileViewModel = viewModel(factory = viewModelFactory)
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
+    val themePreferences = remember { ThemePreferences(context) }
+    val pinPreferences = remember { PinPreferences(context) }
     
     val userEmail by viewModel.userEmail.collectAsState()
     val username by viewModel.username.collectAsState()
@@ -67,6 +73,7 @@ fun ProfileScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val isAdmin by viewModel.isAdmin.collectAsState()
+    val isLoggedOut by viewModel.isLoggedOut.collectAsState()
 
     var isEditingUsername by remember { mutableStateOf(false) }
     var newUsername by remember { mutableStateOf("") }
@@ -78,14 +85,30 @@ fun ProfileScreen(
     var showAboutDialog by remember { mutableStateOf(false) }
     var showAvatarOptions by remember { mutableStateOf(false) }
     
-    // PIN Lock state
+    // PIN Lock state - load from DataStore
+    val isPinEnabledState by pinPreferences.isPinEnabled.collectAsState(false)
+    val isBiometricEnabledState by pinPreferences.isBiometricEnabled.collectAsState(false)
+    
     var isPinEnabled by remember { mutableStateOf(false) }
     var isBiometricEnabled by remember { mutableStateOf(false) }
     
-    // Accessibility states
-    var isDarkMode by remember { mutableStateOf(true) }
-    var isHighContrast by remember { mutableStateOf(false) }
-    var textSizeValue by remember { mutableFloatStateOf(1f) }
+    // Load PIN state on composition
+    LaunchedEffect(isPinEnabledState, isBiometricEnabledState) {
+        isPinEnabled = isPinEnabledState
+        isBiometricEnabled = isBiometricEnabledState
+    }
+    
+    // Watch for logout and navigate
+    LaunchedEffect(isLoggedOut) {
+        if (isLoggedOut) {
+            onBack()  // Navigate to auth
+        }
+    }
+    
+    // Accessibility states - load from DataStore
+    val isDarkMode by themePreferences.isDarkMode.collectAsState(true)
+    val isHighContrast by themePreferences.isHighContrast.collectAsState(false)
+    val textSizeValue by themePreferences.textSize.collectAsState(1f)
     
     // Avatar upload
     var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
@@ -447,12 +470,17 @@ fun ProfileScreen(
                             }
                             Switch(
                                 checked = isPinEnabled,
-                                onCheckedChange = { 
-                                    if (it) {
+                                onCheckedChange = { newValue ->
+                                    if (newValue) {
                                         showPinSetupDialog = true
                                     } else {
                                         isPinEnabled = false
                                         isBiometricEnabled = false
+                                        // Clear PIN from DataStore
+                                        viewModel.viewModelScope.launch {
+                                            pinPreferences.setPinEnabled(false)
+                                            pinPreferences.setBiometricEnabled(false)
+                                        }
                                     }
                                 },
                                 colors = SwitchDefaults.colors(
@@ -484,7 +512,21 @@ fun ProfileScreen(
                                 }
                                 Switch(
                                     checked = isBiometricEnabled,
-                                    onCheckedChange = { isBiometricEnabled = it },
+                                    onCheckedChange = { newValue ->
+                                        if (newValue) {
+                                            // TODO: Show biometric authentication prompt
+                                            // For now, just enable it
+                                            isBiometricEnabled = true
+                                            viewModel.viewModelScope.launch {
+                                                pinPreferences.setBiometricEnabled(true)
+                                            }
+                                        } else {
+                                            isBiometricEnabled = false
+                                            viewModel.viewModelScope.launch {
+                                                pinPreferences.setBiometricEnabled(false)
+                                            }
+                                        }
+                                    },
                                     colors = SwitchDefaults.colors(
                                         checkedThumbColor = NdomogColors.Primary,
                                         checkedTrackColor = NdomogColors.Primary.copy(alpha = 0.5f)
@@ -543,13 +585,18 @@ fun ProfileScreen(
                                     style = MaterialTheme.typography.bodyMedium.copy(color = NdomogColors.TextLight)
                                 )
                                 Text(
-                                    "Currently using dark theme",
+                                    if (isDarkMode) "Dark theme enabled" else "Light theme enabled",
                                     style = MaterialTheme.typography.bodySmall.copy(color = NdomogColors.TextMuted)
                                 )
                             }
                             Switch(
                                 checked = isDarkMode,
-                                onCheckedChange = { isDarkMode = it },
+                                onCheckedChange = { newValue ->
+                                    // Save to DataStore
+                                    viewModel.viewModelScope.launch {
+                                        themePreferences.setDarkMode(newValue)
+                                    }
+                                },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = NdomogColors.Primary,
                                     checkedTrackColor = NdomogColors.Primary.copy(alpha = 0.5f)
@@ -573,13 +620,18 @@ fun ProfileScreen(
                                     style = MaterialTheme.typography.bodyMedium.copy(color = NdomogColors.TextLight)
                                 )
                                 Text(
-                                    "Increase color contrast for visibility",
+                                    if (isHighContrast) "High contrast enabled" else "Standard contrast",
                                     style = MaterialTheme.typography.bodySmall.copy(color = NdomogColors.TextMuted)
                                 )
                             }
                             Switch(
                                 checked = isHighContrast,
-                                onCheckedChange = { isHighContrast = it },
+                                onCheckedChange = { newValue ->
+                                    // Save to DataStore
+                                    viewModel.viewModelScope.launch {
+                                        themePreferences.setHighContrast(newValue)
+                                    }
+                                },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = NdomogColors.Primary,
                                     checkedTrackColor = NdomogColors.Primary.copy(alpha = 0.5f)
@@ -620,7 +672,12 @@ fun ProfileScreen(
                                 Text("A", style = MaterialTheme.typography.bodySmall.copy(color = NdomogColors.TextMuted))
                                 Slider(
                                     value = textSizeValue,
-                                    onValueChange = { textSizeValue = it },
+                                    onValueChange = { newValue ->
+                                        // Save to DataStore
+                                        viewModel.viewModelScope.launch {
+                                            themePreferences.setTextSize(newValue)
+                                        }
+                                    },
                                     valueRange = 0.8f..1.4f,
                                     modifier = Modifier
                                         .weight(1f)
@@ -642,45 +699,16 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // App Management Section
+                // App Management & About Section (merged)
                 SettingSection(
                     title = "App Management",
                     icon = Icons.Filled.Settings,
                     items = listOf(
                         SettingItem(
-                            label = "Manage Categories",
-                            icon = Icons.Filled.Category,
-                            action = { /* TODO: Navigate to categories */ }
-                        ),
-                        SettingItem(
                             label = "Check for Updates",
                             icon = Icons.Filled.Refresh,
                             action = { showVersionInfoDialog = true }
-                        )
-                    ),
-                    footer = {
-                        Text(
-                            "Current version: $APP_VERSION",
-                            style = MaterialTheme.typography.bodySmall.copy(color = NdomogColors.TextMuted),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-                        SettingItemRow(
-                            item = SettingItem(
-                                label = "View All Versions",
-                                icon = Icons.Filled.History,
-                                action = { showVersionInfoDialog = true }
-                            )
-                        )
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // About Section
-                SettingSection(
-                    title = "About",
-                    icon = Icons.Filled.Info,
-                    items = listOf(
+                        ),
                         SettingItem(
                             label = "About This App",
                             icon = Icons.Filled.HelpOutline,
@@ -697,6 +725,18 @@ fun ProfileScreen(
                             action = { uriHandler.openUri("https://ndomog.com/terms") }
                         )
                     )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // App Version at the bottom
+                Text(
+                    "Version $APP_VERSION (Build $BUILD_NUMBER)",
+                    style = MaterialTheme.typography.bodySmall.copy(color = NdomogColors.TextMuted),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -792,8 +832,8 @@ fun ProfileScreen(
     if (showChangePasswordDialog) {
         ChangePasswordDialog(
             onDismiss = { showChangePasswordDialog = false },
-            onConfirm = { newPassword ->
-                viewModel.updatePassword(newPassword)
+            onConfirm = { oldPassword, newPassword ->
+                viewModel.updatePassword(oldPassword, newPassword)
                 showChangePasswordDialog = false
             }
         )
@@ -806,7 +846,12 @@ fun ProfileScreen(
             onConfirm = { pin ->
                 isPinEnabled = true
                 showPinSetupDialog = false
-                // TODO: Save PIN securely
+                // Save PIN securely to DataStore
+                viewModel.viewModelScope.launch {
+                    pinPreferences.setPinEnabled(true)
+                    // In a real app, hash the PIN before storing
+                    pinPreferences.setPinHash(pin) // TODO: Use proper hashing
+                }
             }
         )
     }
@@ -926,11 +971,14 @@ fun SettingItemRow(item: SettingItem) {
 @Composable
 fun ChangePasswordDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (String, String) -> Unit
 ) {
+    var oldPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    var showPassword by remember { mutableStateOf(false) }
+    var showOldPassword by remember { mutableStateOf(false) }
+    var showNewPassword by remember { mutableStateOf(false) }
+    var showConfirmPassword by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     
     AlertDialog(
@@ -941,15 +989,16 @@ fun ChangePasswordDialog(
         },
         text = {
             Column {
+                // Old Password Field
                 OutlinedTextField(
-                    value = newPassword,
-                    onValueChange = { newPassword = it; error = null },
-                    label = { Text("New Password", color = NdomogColors.TextMuted) },
-                    visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                    value = oldPassword,
+                    onValueChange = { oldPassword = it; error = null },
+                    label = { Text("Current Password", color = NdomogColors.TextMuted) },
+                    visualTransformation = if (showOldPassword) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
-                        IconButton(onClick = { showPassword = !showPassword }) {
+                        IconButton(onClick = { showOldPassword = !showOldPassword }) {
                             Icon(
-                                if (showPassword) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                if (showOldPassword) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
                                 contentDescription = null,
                                 tint = NdomogColors.TextMuted
                             )
@@ -965,11 +1014,48 @@ fun ChangePasswordDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+                
+                // New Password Field
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it; error = null },
+                    label = { Text("New Password", color = NdomogColors.TextMuted) },
+                    visualTransformation = if (showNewPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showNewPassword = !showNewPassword }) {
+                            Icon(
+                                if (showNewPassword) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = null,
+                                tint = NdomogColors.TextMuted
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = NdomogColors.DarkBorder,
+                        focusedBorderColor = NdomogColors.Primary,
+                        unfocusedTextColor = NdomogColors.TextLight,
+                        focusedTextColor = NdomogColors.TextLight
+                    ),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Confirm Password Field
                 OutlinedTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it; error = null },
                     label = { Text("Confirm Password", color = NdomogColors.TextMuted) },
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (showConfirmPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showConfirmPassword = !showConfirmPassword }) {
+                            Icon(
+                                if (showConfirmPassword) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = null,
+                                tint = NdomogColors.TextMuted
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = NdomogColors.DarkBorder,
@@ -993,9 +1079,10 @@ fun ChangePasswordDialog(
             Button(
                 onClick = {
                     when {
-                        newPassword.length < 6 -> error = "Password must be at least 6 characters"
+                        oldPassword.isEmpty() -> error = "Current password is required"
+                        newPassword.length < 6 -> error = "New password must be at least 6 characters"
                         newPassword != confirmPassword -> error = "Passwords don't match"
-                        else -> onConfirm(newPassword)
+                        else -> onConfirm(oldPassword, newPassword)
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = NdomogColors.Primary)

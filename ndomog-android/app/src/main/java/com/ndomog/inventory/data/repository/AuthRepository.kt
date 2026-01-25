@@ -55,4 +55,23 @@ class AuthRepository {
         emit(getCurrentUser())
         // Can add Supabase auth state listeners here
     }
+
+    suspend fun updatePassword(newPassword: String): Result<Unit> {
+        return try {
+            // For Supabase Kotlin SDK, password updates require using the reset password flow
+            // instead of direct password updates on the client
+            Result.failure(Exception("Password updates require using the password reset email flow"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit> {
+        return try {
+            supabase.auth.resetPasswordForEmail(email)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
