@@ -10,14 +10,17 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -38,7 +41,10 @@ fun DashboardScreen(
     onLogout: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToCategories: () -> Unit,
-    viewModelFactory: ViewModelFactory
+    onNavigateToActivity: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
+    viewModelFactory: ViewModelFactory,
+    userAvatarUrl: String? = null
 ) {
     val viewModel: DashboardViewModel = viewModel(factory = viewModelFactory)
     val items by viewModel.items.collectAsState()
@@ -47,6 +53,12 @@ fun DashboardScreen(
 
     var showAddEditDialog by remember { mutableStateOf(false) }
     var itemToEdit by remember { mutableStateOf<Item?>(null) }
+
+    // Calculate dashboard stats
+    val totalItems = items.sumOf { it.quantity }
+    val totalCost = items.sumOf { it.buyingPrice * it.quantity }
+    val potentialProfit = items.sumOf { (it.sellingPrice - it.buyingPrice) * it.quantity }
+    val lowStockCount = items.count { it.quantity <= it.lowStockThreshold }
 
     Scaffold(
         topBar = {
@@ -63,14 +75,51 @@ fun DashboardScreen(
                     scrolledContainerColor = NdomogColors.DarkCard
                 ),
                 actions = {
-                    IconButton(onClick = onNavigateToCategories) {
-                        Icon(Icons.Filled.Category, contentDescription = "Categories", tint = NdomogColors.Primary)
+                    // Activity Icon (pulse/heartbeat)
+                    IconButton(onClick = onNavigateToActivity) {
+                        Icon(
+                            Icons.Filled.ShowChart,
+                            contentDescription = "Activity",
+                            tint = NdomogColors.TextMuted
+                        )
                     }
+                    // Notification Icon
+                    IconButton(onClick = onNavigateToNotifications) {
+                        Icon(
+                            Icons.Outlined.Notifications,
+                            contentDescription = "Notifications",
+                            tint = NdomogColors.TextMuted
+                        )
+                    }
+                    // Profile Avatar
                     IconButton(onClick = onNavigateToProfile) {
-                        Icon(Icons.Filled.Person, contentDescription = "Profile", tint = NdomogColors.Primary)
-                    }
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.Filled.ExitToApp, contentDescription = "Logout", tint = NdomogColors.Error)
+                        if (userAvatarUrl != null) {
+                            AsyncImage(
+                                model = userAvatarUrl,
+                                contentDescription = "Profile",
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .border(2.dp, NdomogColors.Primary, CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .border(2.dp, NdomogColors.Primary, CircleShape)
+                                    .background(NdomogColors.DarkSecondary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Filled.Person,
+                                    contentDescription = "Profile",
+                                    tint = NdomogColors.Primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 }
             )
@@ -157,26 +206,49 @@ fun DashboardScreen(
                             .padding(16.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) {
+                        // Dashboard Stats Cards - 4 cards in 2x2 grid
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            // Stats Cards (matching web StatsCards component)
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = 24.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    .padding(bottom = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                StatsCard(
-                                    title = "Total Items",
-                                    value = items.size.toString(),
-                                    icon = Icons.Filled.ShoppingCart,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                StatsCard(
-                                    title = "Categories",
-                                    value = items.distinctBy { it.category }.size.toString(),
-                                    icon = Icons.Filled.Category,
-                                    modifier = Modifier.weight(1f)
-                                )
+                                // First row: Total Items + Total Cost
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    DashboardStatCard(
+                                        title = "Total Items",
+                                        value = totalItems.toString(),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    DashboardStatCard(
+                                        title = "Total Cost",
+                                        value = "KES ${formatNumber(totalCost)}",
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                // Second row: Potential Profit + Low Stock
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    DashboardStatCard(
+                                        title = "Potential Profit",
+                                        value = "KES ${formatNumber(potentialProfit)}",
+                                        valueColor = NdomogColors.Success,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    DashboardStatCard(
+                                        title = "Low Stock",
+                                        value = lowStockCount.toString(),
+                                        icon = Icons.Filled.Warning,
+                                        iconColor = NdomogColors.Warning,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
                             }
                         }
 
@@ -221,46 +293,65 @@ fun DashboardScreen(
     }
 }
 
+// Utility function to format numbers with commas
+private fun formatNumber(number: Double): String {
+    return if (number == number.toLong().toDouble()) {
+        String.format("%,d", number.toLong())
+    } else {
+        String.format("%,.2f", number)
+    }
+}
+
 @Composable
-fun StatsCard(
+fun DashboardStatCard(
     title: String,
     value: String,
-    icon: ImageVector,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    valueColor: Color = NdomogColors.TextLight,
+    icon: ImageVector? = null,
+    iconColor: Color = NdomogColors.Primary
 ) {
     Card(
         modifier = modifier
-            .height(100.dp),
+            .height(90.dp),
         colors = CardDefaults.cardColors(
-            containerColor = NdomogColors.DarkCard.copy(alpha = 0.8f)
+            containerColor = NdomogColors.DarkCard
         ),
-        border = BorderStroke(1.dp, NdomogColors.Primary.copy(alpha = 0.3f)),
-        shape = RoundedCornerShape(12.dp)
+        border = BorderStroke(1.dp, NdomogColors.DarkBorder),
+        shape = RoundedCornerShape(8.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = NdomogColors.Primary,
-                modifier = Modifier.size(20.dp)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Text(
+                    title,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = NdomogColors.TextMuted
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 value,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    color = NdomogColors.TextLight,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    color = valueColor,
                     fontWeight = FontWeight.Bold
                 ),
-                fontSize = 20.sp
-            )
-            Text(
-                title,
-                style = MaterialTheme.typography.labelSmall.copy(color = NdomogColors.TextMuted),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -308,7 +399,7 @@ fun ItemCard(item: Item, onEdit: (Item) -> Unit) {
                 }
 
                 // Stock Status Badge
-                val isLow = item.quantity <= 0 || item.quantity <= (item.lowStockThreshold ?: 5)
+                val isLow = item.quantity <= 0 || item.quantity <= item.lowStockThreshold
                 if (isLow) {
                     Surface(
                         modifier = Modifier
