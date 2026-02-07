@@ -65,9 +65,7 @@ fun DashboardScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val userAvatar by profileViewModel.avatarUrl.collectAsState()
-    val accessToken = remember {
-        SupabaseClient.client.auth.currentSessionOrNull()?.accessToken
-    }
+    val accessToken = SupabaseClient.client.auth.currentSessionOrNull()?.accessToken
 
     var showAddEditDialog by remember { mutableStateOf(false) }
     var itemToEdit by remember { mutableStateOf<Item?>(null) }

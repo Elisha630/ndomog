@@ -100,6 +100,14 @@ class SyncRepository(
                 }
                 .decodeList<Item>()
             itemDao.insertItems(items)
+            val remoteIds = items.map { it.id }.toSet()
+            val pendingIds = pendingActionDao.getPendingEntityIds().toSet()
+            val keepIds = (remoteIds + pendingIds).toList()
+            if (keepIds.isEmpty()) {
+                itemDao.deleteAll()
+            } else {
+                itemDao.deleteItemsNotIn(keepIds)
+            }
 
             return SyncResult(
                 success = errors.isEmpty(),

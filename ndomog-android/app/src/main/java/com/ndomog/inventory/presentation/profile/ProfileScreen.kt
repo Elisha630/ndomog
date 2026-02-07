@@ -105,9 +105,7 @@ fun ProfileScreen(
     var isEditingUsername by remember { mutableStateOf(false) }
     var newUsername by remember { mutableStateOf("") }
 
-    val accessToken = remember {
-        SupabaseClient.client.auth.currentSessionOrNull()?.accessToken
-    }
+    val accessToken = SupabaseClient.client.auth.currentSessionOrNull()?.accessToken
     
     // Dialogs
     var showChangePasswordDialog by remember { mutableStateOf(false) }

@@ -32,13 +32,16 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
+import com.ndomog.inventory.data.remote.SupabaseClient
 import com.ndomog.inventory.data.models.Item
 import com.ndomog.inventory.presentation.theme.NdomogColors
+import io.github.jan.supabase.storage.storage
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +55,7 @@ fun AddEditItemDialog(
     if (!showDialog) return
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     
     var name by remember { mutableStateOf(existingItem?.name ?: "") }
     var category by remember { mutableStateOf(existingItem?.category ?: "") }
@@ -68,6 +72,36 @@ fun AddEditItemDialog(
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var showCameraError by remember { mutableStateOf(false) }
+    var uploadError by remember { mutableStateOf<String?>(null) }
+    var isUploading by remember { mutableStateOf(false) }
+
+    fun getImageExtension(uri: Uri): String {
+        val mimeType = context.contentResolver.getType(uri)
+        return when (mimeType) {
+            "image/png" -> "png"
+            "image/webp" -> "webp"
+            "image/jpeg" -> "jpg"
+            else -> "jpg"
+        }
+    }
+
+    fun readBytesFromUri(uri: Uri): ByteArray? {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                input.readBytes()
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    suspend fun uploadItemPhoto(itemId: String, uri: Uri): String {
+        val bytes = readBytesFromUri(uri) ?: throw Exception("Failed to read image")
+        val ext = getImageExtension(uri)
+        val path = "items/$itemId/${UUID.randomUUID()}.$ext"
+        SupabaseClient.client.storage.from("item-photos").upload(path, bytes, upsert = false)
+        return SupabaseClient.client.storage.from("item-photos").publicUrl(path)
+    }
     
     // Create a temporary file for camera photo
     fun createImageFile(): File {
@@ -252,6 +286,36 @@ fun AddEditItemDialog(
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
+                        }
+                    }
+                }
+                
+                if (uploadError != null) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        colors = CardDefaults.cardColors(containerColor = NdomogColors.ErrorBackground),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Warning,
+                                contentDescription = null,
+                                tint = NdomogColors.Error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                uploadError ?: "Failed to upload image",
+                                color = NdomogColors.ErrorText,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
                 }
@@ -642,19 +706,37 @@ fun AddEditItemDialog(
                     
                     Button(
                         onClick = {
+                            if (isUploading) return@Button
+                            uploadError = null
                             val finalCategory = if (isNewCategory) newCategoryName else category
-                            val newItem = Item(
-                                id = existingItem?.id ?: UUID.randomUUID().toString(),
-                                name = name.trim(),
-                                category = finalCategory.trim(),
-                                details = details.trim().ifEmpty { null },
-                                photoUrl = photoUrl.ifEmpty { null },
-                                buyingPrice = buyingPrice.toDoubleOrNull() ?: 0.0,
-                                sellingPrice = sellingPrice.toDoubleOrNull() ?: 0.0,
-                                quantity = quantity.toIntOrNull() ?: 0,
-                                lowStockThreshold = lowStockThreshold.toIntOrNull() ?: 5
-                            )
-                            onConfirm(newItem)
+                            val itemId = existingItem?.id ?: UUID.randomUUID().toString()
+                            scope.launch {
+                                isUploading = true
+                                var finalPhotoUrl: String? = photoUrl.ifEmpty { null }
+                                val localUri = selectedImageUri
+                                if (localUri != null && (localUri.scheme == "content" || localUri.scheme == "file")) {
+                                    try {
+                                        finalPhotoUrl = uploadItemPhoto(itemId, localUri)
+                                    } catch (e: Exception) {
+                                        uploadError = e.message ?: "Failed to upload image"
+                                        isUploading = false
+                                        return@launch
+                                    }
+                                }
+                                val newItem = Item(
+                                    id = itemId,
+                                    name = name.trim(),
+                                    category = finalCategory.trim(),
+                                    details = details.trim().ifEmpty { null },
+                                    photoUrl = finalPhotoUrl,
+                                    buyingPrice = buyingPrice.toDoubleOrNull() ?: 0.0,
+                                    sellingPrice = sellingPrice.toDoubleOrNull() ?: 0.0,
+                                    quantity = quantity.toIntOrNull() ?: 0,
+                                    lowStockThreshold = lowStockThreshold.toIntOrNull() ?: 5
+                                )
+                                isUploading = false
+                                onConfirm(newItem)
+                            }
                         },
                         modifier = Modifier
                             .weight(1f)
@@ -663,8 +745,16 @@ fun AddEditItemDialog(
                             containerColor = NdomogColors.Primary
                         ),
                         shape = RoundedCornerShape(8.dp),
-                        enabled = name.isNotBlank() && (category.isNotBlank() || (isNewCategory && newCategoryName.isNotBlank()))
+                        enabled = name.isNotBlank() && (category.isNotBlank() || (isNewCategory && newCategoryName.isNotBlank())) && !isUploading
                     ) {
+                        if (isUploading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = NdomogColors.TextOnPrimary,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
                         Text(
                             if (existingItem == null) "Add Item" else "Save Changes",
                             color = NdomogColors.TextOnPrimary,

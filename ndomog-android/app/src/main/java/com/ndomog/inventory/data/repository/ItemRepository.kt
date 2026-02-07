@@ -55,8 +55,16 @@ class ItemRepository(
                     }
                     .decodeList<Item>()
 
-                // Cache locally
+                // Cache locally and remove stale items (but keep items with pending actions)
                 itemDao.insertItems(items)
+                val remoteIds = items.map { it.id }.toSet()
+                val pendingIds = pendingActionDao.getPendingEntityIds().toSet()
+                val keepIds = (remoteIds + pendingIds).toList()
+                if (keepIds.isEmpty()) {
+                    itemDao.deleteAll()
+                } else {
+                    itemDao.deleteItemsNotIn(keepIds)
+                }
                 Result.success(Pair(items, false))
             } else {
                 // Load from cache

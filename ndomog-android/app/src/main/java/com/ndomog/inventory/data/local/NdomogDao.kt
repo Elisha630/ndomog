@@ -32,6 +32,9 @@ interface ItemDao {
 
     @Query("DELETE FROM items")
     suspend fun deleteAll()
+
+    @Query("DELETE FROM items WHERE id NOT IN (:ids)")
+    suspend fun deleteItemsNotIn(ids: List<String>)
 }
 
 @Dao
@@ -74,6 +77,9 @@ interface ProfileDao {
 interface PendingActionDao {
     @Query("SELECT * FROM pending_actions WHERE synced = 0 ORDER BY timestamp ASC")
     suspend fun getPendingActions(): List<PendingAction>
+
+    @Query("SELECT entityId FROM pending_actions WHERE synced = 0")
+    suspend fun getPendingEntityIds(): List<String>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAction(action: PendingAction)
