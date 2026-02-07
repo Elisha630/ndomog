@@ -119,8 +119,8 @@ const saveDeviceToken = async (token: string) => {
 
     const platform = Capacitor.getPlatform();
 
-    // Upsert the device token
-    const { error } = await supabase
+    // Upsert the device token (table may exist in external Supabase)
+    const { error } = await (supabase as any)
       .from("device_tokens")
       .upsert(
         {
@@ -157,8 +157,8 @@ export const removeDeviceToken = async () => {
       return;
     }
 
-    // Remove all device tokens for this user
-    await supabase.from("device_tokens").delete().eq("user_id", user.id);
+    // Remove all device tokens for this user (table may exist in external Supabase)
+    await (supabase as any).from("device_tokens").delete().eq("user_id", user.id);
 
     // Remove listeners + reset init so the user can re-enable later
     await PushNotifications.removeAllListeners();
