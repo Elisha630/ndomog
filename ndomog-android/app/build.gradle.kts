@@ -108,6 +108,9 @@ dependencies {
 
     // Activity Compose
     implementation("androidx.activity:activity-compose:1.8.2")
+    
+    // Splash Screen API
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
     // Biometric authentication
     implementation("androidx.biometric:biometric:1.1.0")
