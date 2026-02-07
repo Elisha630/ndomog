@@ -98,7 +98,7 @@ const AdminUsers = () => {
     setVerifyingUser(userId);
     try {
       const { error } = await supabase.rpc("admin_verify_user", {
-        _target_user_id: userId,
+        target_user_id: userId,
       });
 
       if (error) throw error;
